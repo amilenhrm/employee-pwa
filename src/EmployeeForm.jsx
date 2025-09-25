@@ -33,6 +33,7 @@ import {
   Menu,
   Autocomplete,
 } from "@mui/material";
+
 // ---------- Initial data & config ----------
 const initialEmployee = {
   idNo: "",
@@ -58,8 +59,10 @@ const initialEmployee = {
   emailAddress: "",
   presentAddress: "",
 };
+
 const LOCAL_STORAGE_KEY = "employees_data";
 const LAST_ID_KEY = "last_employee_id";
+
 const fieldConfig = [
   { name: "idNo", label: "Emp ID #", readOnly: true },
   { name: "lastName", label: "Last Name", required: true },
@@ -84,13 +87,16 @@ const fieldConfig = [
   { name: "emailAddress", label: "Email Address", type: "email" },
   { name: "presentAddress", label: "Present Address" },
 ];
+
 const companyList = ["AHRM", "3JPMC", "UFPC", "PFGI", "AMC", "SLVMC", "YE", "TANGC"];
+
 const generateIdNo = () => {
   let lastId = parseInt(localStorage.getItem(LAST_ID_KEY) || "0", 10);
   lastId++;
   localStorage.setItem(LAST_ID_KEY, lastId.toString());
   return `EMP-${lastId.toString().padStart(4, "0")}`;
 };
+
 // ---------- Component ----------
 const EmployeeForm = () => {
   // state
@@ -104,12 +110,16 @@ const EmployeeForm = () => {
   const tableRef = useRef();
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
+
   const handleMenuClick = (event) => {
     setAnchorEl(event.currentTarget);
   };
+
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
+  const LOCAL_STORAGE_KEY = "employees_data";
+
 // Load once on mount
 useEffect(() => {
   try {
@@ -122,12 +132,14 @@ useEffect(() => {
     console.error("Error loading employees:", err);
   }
 }, []);
+
 // Save whenever employees change, but only if not empty
 useEffect(() => {
   if (employees.length > 0) {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(employees));
   }
 }, [employees]);
+
   // Print employee table only
 const handlePrint = () => {
   const printContent = tableRef.current;
@@ -152,11 +164,14 @@ const handlePrint = () => {
   WinPrint.print();
   WinPrint.close();
 };
+
 // Export to PDF
 const handleExportPDF = () => {
   const doc = new jsPDF("landscape");
+
   doc.setFontSize(14);
   doc.text("Employee List", 14, 15);
+
   const tableColumn = Object.keys(initialEmployee).map((key) =>
     key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())
   );
@@ -165,6 +180,7 @@ const handleExportPDF = () => {
       ["birthdate", "startDate", "endDate"].includes(key) ? formatDate(emp[key]) : emp[key]
     )
   );
+
   doc.autoTable({
     head: [tableColumn],
     body: tableRows,
@@ -172,23 +188,29 @@ const handleExportPDF = () => {
     styles: { fontSize: 8 },
     headStyles: { fillColor: [41, 128, 185] },
   });
+
   doc.save("employees.pdf");
 };
+
   // pagination
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+
   // snackbar
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
+
   const showSnackbar = (message, severity = "success") => {
     setSnackbar({ open: true, message, severity });
   };
+
   const handleCloseSnackbar = () => {
     setSnackbar((prev) => ({ ...prev, open: false }));
   };
+
   // auto-calc endDate when startDate or contractDuration changes
   useEffect(() => {
     if (employee.startDate && employee.contractDuration) {
@@ -204,6 +226,7 @@ const handleExportPDF = () => {
     }
     setEmployee((prev) => ({ ...prev, endDate: "" }));
   }, [employee.startDate, employee.contractDuration]);
+
   // auto-set status (Active/Inactive)
   useEffect(() => {
     if (employee.startDate && employee.endDate) {
@@ -216,6 +239,7 @@ const handleExportPDF = () => {
       setEmployee((prev) => ({ ...prev, status: "" }));
     }
   }, [employee.startDate, employee.endDate]);
+
   // helpers
   const formatDate = (d) => {
     if (!d) return "";
@@ -225,6 +249,7 @@ const handleExportPDF = () => {
       date.getDate()
     ).padStart(2, "0")}/${date.getFullYear()}`;
   };
+
   const validateField = (name, value) => {
     let error = "";
     if (["lastName", "firstName", "company"].includes(name) && !value)
@@ -243,6 +268,7 @@ const handleExportPDF = () => {
       error = "Invalid email format";
     return error;
   };
+
   // handle form changes
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -253,9 +279,11 @@ const handleExportPDF = () => {
       newValue = value.replace(/\D/g, "").slice(0, 12);
     if (name === "tinNo") newValue = value.replace(/\D/g, "").slice(0, 9);
     if (name === "contactNo") newValue = value.replace(/\D/g, "").slice(0, 11);
+
     setEmployee((prev) => ({ ...prev, [name]: newValue }));
     setErrors((prev) => ({ ...prev, [name]: validateField(name, newValue) }));
   };
+
   // submit (add or update)
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -269,6 +297,7 @@ const handleExportPDF = () => {
       showSnackbar("Please fix validation errors", "error");
       return;
     }
+
     if (editIndex !== null) {
       if (!window.confirm("Are you sure you want to update this employee?")) {
         return;
@@ -284,17 +313,20 @@ const handleExportPDF = () => {
     }
     setEmployee(initialEmployee);
   };
+
   // reset form
   const handleReset = () => {
     setEmployee(initialEmployee);
     setEditIndex(null);
     setErrors({});
   };
+
   // edit
   const handleEdit = (globalIndex) => {
     setEmployee(employees[globalIndex]);
     setEditIndex(globalIndex);
   };
+
   // delete
   const handleDelete = (globalIndex) => {
     if (window.confirm("Delete this employee?")) {
@@ -306,12 +338,14 @@ const handleExportPDF = () => {
       showSnackbar("Employee deleted successfully", "success");
     }
   };
+
   // sorting
   const requestSort = (key) => {
     let dir = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") dir = "desc";
     setSortConfig({ key, direction: dir });
   };
+
   const sortedEmployees = useMemo(() => {
     let arr = [...employees];
     if (sortConfig.key) {
@@ -332,6 +366,7 @@ const handleExportPDF = () => {
     }
     return arr;
   }, [employees, sortConfig]);
+
   const filteredEmployees = sortedEmployees
     .filter((emp) => {
       const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
@@ -341,10 +376,12 @@ const handleExportPDF = () => {
       );
     })
     .filter((emp) => (selectedCompany ? emp.company === selectedCompany : true));
+
   const paginatedEmployees = useMemo(() => {
     const start = page * rowsPerPage;
     return filteredEmployees.slice(start, start + rowsPerPage);
   }, [filteredEmployees, page, rowsPerPage]);
+
   // excel export
   const handleExportExcel = () => {
     const wsData = employees.map((emp) =>
@@ -358,6 +395,7 @@ const handleExportPDF = () => {
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     saveAs(new Blob([wbout], { type: "application/octet-stream" }), "employees.xlsx");
   };
+
   // excel import (simple)
   const handleImportExcel = (e) => {
     const file = e.target.files?.[0];
@@ -392,6 +430,7 @@ const handleExportPDF = () => {
     reader.readAsArrayBuffer(file);
     e.target.value = null;
   };
+
   // JSON backup
   const handleBackupJSON = () => {
     try {
@@ -409,13 +448,17 @@ const handleRestoreJSON = (e) => {
   reader.onload = (evt) => {
     try {
       const json = JSON.parse(evt.target.result);
+
       // auto-detect: array vs object.employees
       const data = Array.isArray(json) ? json : json.employees;
+
       if (!Array.isArray(data)) {
         throw new Error("Invalid JSON structure: must be an array or { employees: [...] }");
       }
+
       setEmployees(data);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+
       // optional: update LAST_ID_KEY to avoid id collisions
       const maxId = data
         .map((r) => {
@@ -440,11 +483,14 @@ const handleRestoreJSON = (e) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
+
   const sortIndicator = (key) => {
     if (sortConfig.key !== key) return null;
     return sortConfig.direction === "asc" ? " ▲" : " ▼";
   };
+
   const startGlobalIndex = page * rowsPerPage;
+
   // ---------- UI ----------
   return (
     <Box display="flex" flexDirection={{ xs: "column", md: "row" }} height="100vh">
@@ -453,6 +499,7 @@ const handleRestoreJSON = (e) => {
         <Typography variant="h5" gutterBottom>
           {editIndex !== null ? "Edit Employee" : "Add Employee"}
         </Typography>
+
         <form onSubmit={handleSubmit}>
           <Box display="flex" flexDirection="column" gap={1} mb={1}>
             {fieldConfig.map((f) => (
@@ -466,7 +513,7 @@ const handleRestoreJSON = (e) => {
                       onChange={handleChange}
                       required={f.required}
                       error={!!errors[f.name]}
-                      >
+                    >
                       <MenuItem value="">-- Select --</MenuItem>
                       {companyList.map((c) => (
                         <MenuItem key={c} value={c}>
@@ -498,6 +545,7 @@ const handleRestoreJSON = (e) => {
               </FormControl>
             ))}
           </Box>
+
           <Box display="flex" gap={1} mb={2}>
             <Button type="submit" variant="contained" fullWidth>
               {editIndex !== null ? "Update Employee" : "Add Employee"}
@@ -527,6 +575,7 @@ const handleRestoreJSON = (e) => {
             </Button>
           ))}
         </Box>
+
         {/* Search + Export */}
       <Box display="flex" alignItems="center" mb={2} gap={2} flexWrap="wrap">
         <TextField
@@ -568,32 +617,40 @@ const handleRestoreJSON = (e) => {
           <PrintIcon fontSize="small" style={{ marginRight: 8 }} />
           Print Employees
         </MenuItem>
+
         {/* Divider */}
         <Box sx={{ borderTop: "1px solid #ddd", my: 1 }} />
+
         {/* IMPORT from Excel */}
-        <label htmlFor="import-excel" style={{ display: "flex", alignItems: "center", padding: "6px 16px", cursor: "pointer" }}>
-          <UploadFileIcon fontSize="small" style={{ marginRight: 8 }} />
-          Import from Excel
+        <label htmlFor="import-excel" style={{ width: "100%" }}>
           <input
+            type="file"
             id="import-excel"
-            type="file"
-            accept=".xlsx,.xls"
+            accept=".xlsx, .xls"
+            style={{ display: "none" }}
             onChange={handleImportExcel}
-            style={{ display: "none" }}
           />
+          <MenuItem component="span">
+            <UploadFileIcon fontSize="small" style={{ marginRight: 8 }} />
+            Import from Excel
+          </MenuItem>
         </label>
+
         {/* RESTORE from JSON */}
-        <label htmlFor="restore-json" style={{ display: "flex", alignItems: "center", padding: "6px 16px", cursor: "pointer" }}>
-          <RestoreIcon fontSize="small" style={{ marginRight: 8 }} />
-          Restore from JSON
+        <label htmlFor="restore-json" style={{ width: "100%" }}>
           <input
-            id="restore-json"
             type="file"
+            id="restore-json"
             accept=".json"
-            onChange={handleRestoreJSON}
             style={{ display: "none" }}
+            onChange={handleRestoreJSON}
           />
+          <MenuItem component="span">
+            <RestoreIcon fontSize="small" style={{ marginRight: 8 }} />
+            Restore JSON Database
+          </MenuItem>
         </label>
+
         {/* BACKUP JSON */}
         <MenuItem
           onClick={() => {
@@ -602,7 +659,7 @@ const handleRestoreJSON = (e) => {
           }}
         >
           <BackupIcon fontSize="small" style={{ marginRight: 8 }} />
-          Backup as JSON
+          Backup to JSON
         </MenuItem>
       </Menu>
         </Box>
@@ -627,6 +684,7 @@ const handleRestoreJSON = (e) => {
                 >
                   Emp ID {sortIndicator("idNo")}
                 </TableCell>
+
                 {Object.keys(initialEmployee)
                   .filter((k) => k !== "idNo")
                   .map((key) => (
@@ -635,6 +693,7 @@ const handleRestoreJSON = (e) => {
                       {sortIndicator(key)}
                     </TableCell>
                   ))}
+
                 {/* Actions sticky right */}
                 <TableCell
                   key="actions_header"
@@ -651,6 +710,7 @@ const handleRestoreJSON = (e) => {
                 </TableCell>
               </TableRow>
             </TableHead>
+
             <TableBody>
               {paginatedEmployees.length > 0 ? (
                 paginatedEmployees.map((emp, idx) => {
@@ -671,6 +731,7 @@ const handleRestoreJSON = (e) => {
                       >
                         {emp.idNo}
                       </TableCell>
+
                       {Object.keys(initialEmployee)
                         .filter((k) => k !== "idNo")
                         .map((key) => (
@@ -678,6 +739,7 @@ const handleRestoreJSON = (e) => {
                             {["birthdate", "startDate", "endDate"].includes(key) ? formatDate(emp[key]) : emp[key]}
                           </TableCell>
                         ))}
+
                       {/* Actions */}
                       <TableCell
                         sx={{
@@ -708,6 +770,7 @@ const handleRestoreJSON = (e) => {
             </TableBody>
           </Table>
         </TableContainer>
+
         {/* Pagination */}
         <TablePagination
           component="div"
