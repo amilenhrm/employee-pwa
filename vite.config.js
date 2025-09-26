@@ -1,8 +1,8 @@
-// vite.config.js
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue' // if using Vue
+import react from '@vitejs/plugin-react'
 
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: "/employee-pwa/", // replace with your repo name
+  base: "/employee-pwa/", // repo name mo sa GitHub
 })
