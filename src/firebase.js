@@ -1,17 +1,25 @@
-// src/firebase.js
+// firebase.js
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";   // ✅ importFirestore
+import { getAnalytics } from "firebase/analytics";
+import { getAuth } from "firebase/auth";   // ✅ import Auth
+
 const firebaseConfig = {
-  apiKey: "AIzaSyBoAj7QH0KZivabYwNiEBai9DCdtF4NXRE",
-  authDomain: "amilen-system-project.firebaseapp.com",
-  projectId: "amilen-system-project",
-  storageBucket: "amilen-system-project.firebasestorage.app",
-  messagingSenderId: "866375463361",
-  appId: "1:866375463361:web:35e65f65a0b3889e403f40",
-  measurementId: "G-N8N19GBMJD"
+  apiKey: "AIzaSyDLWkm7UgcQNNxfOc38dPvKrSXr4-0u39Q",
+  authDomain: "amilensystemproject.firebaseapp.com",
+  projectId: "amilensystemproject",
+  storageBucket: "amilensystemproject.firebasestorage.app",
+  messagingSenderId: "654529566335",
+  appId: "1:654529566335:web:9009de7e344270c784114a"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
+// ✅ Initialize Firestore
 const db = getFirestore(app);
+// ✅ initialize Auth
+const auth = getAuth(app);
+// (optional) Analytics
+const analytics = getAnalytics(app);
 
-export { db };
+export { db, auth };

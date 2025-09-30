@@ -1,10 +1,9 @@
 // EmployeeForm.jsx
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { useRef } from "react";
 import DownloadIcon from "@mui/icons-material/Download";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import PrintIcon from "@mui/icons-material/Print";
@@ -31,8 +30,18 @@ import {
   Snackbar,
   Alert,
   Menu,
-  Autocomplete,
 } from "@mui/material";
+
+// 🔹 Firebase imports
+import { db } from "./firebase";
+import {
+  collection,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
 
 // ---------- Initial data & config ----------
 const initialEmployee = {
@@ -59,9 +68,6 @@ const initialEmployee = {
   emailAddress: "",
   presentAddress: "",
 };
-
-const LOCAL_STORAGE_KEY = "employees_data";
-const LAST_ID_KEY = "last_employee_id";
 
 const fieldConfig = [
   { name: "idNo", label: "Emp ID #", readOnly: true },
@@ -90,13 +96,12 @@ const fieldConfig = [
 
 const companyList = ["AHRM", "3JPMC", "UFPC", "PFGI", "AMC", "SLVMC", "YE", "TANGC"];
 
+// Helper to generate Employee IDs
+let empCounter = 0;
 const generateIdNo = () => {
-  let lastId = parseInt(localStorage.getItem(LAST_ID_KEY) || "0", 10);
-  lastId++;
-  localStorage.setItem(LAST_ID_KEY, lastId.toString());
-  return `EMP-${lastId.toString().padStart(4, "0")}`;
+  empCounter++;
+  return `EMP-${empCounter.toString().padStart(4, "0")}`;
 };
-
 // ---------- Component ----------
 const EmployeeForm = () => {
   // state
@@ -110,35 +115,23 @@ const EmployeeForm = () => {
   const tableRef = useRef();
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
+  const handleMenuClick = (event) => setAnchorEl(event.currentTarget);
+  const handleMenuClose = () => setAnchorEl(null);
+// ---------- Load from Firestore ----------
+  useEffect(() => {
+  const unsub = onSnapshot(collection(db, "employees"), (snapshot) => {
+    const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    setEmployees(list);
 
-  const handleMenuClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-  const LOCAL_STORAGE_KEY = "employees_data";
-
-// Load once on mount
-useEffect(() => {
-  try {
-    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) setEmployees(parsed);
-    }
-  } catch (err) {
-    console.error("Error loading employees:", err);
-  }
+    // update empCounter
+    const maxId = list.reduce((max, e) => {
+      const m = String(e.idNo || "").match(/EMP-(\d+)/);
+      return m ? Math.max(max, parseInt(m[1])) : max;
+    }, 0);
+    empCounter = maxId;
+  });
+  return () => unsub();
 }, []);
-
-// Save whenever employees change, but only if not empty
-useEffect(() => {
-  if (employees.length > 0) {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(employees));
-  }
-}, [employees]);
 
   // Print employee table only
 const handlePrint = () => {
@@ -250,6 +243,7 @@ const handleExportPDF = () => {
     ).padStart(2, "0")}/${date.getFullYear()}`;
   };
 
+  // ---------- Validation ----------
   const validateField = (name, value) => {
     let error = "";
     if (["lastName", "firstName", "company"].includes(name) && !value)
@@ -269,7 +263,7 @@ const handleExportPDF = () => {
     return error;
   };
 
-  // handle form changes
+  /// ---------- Handlers ----------
   const handleChange = (e) => {
     const { name, value } = e.target;
     let newValue = value;
@@ -285,7 +279,7 @@ const handleExportPDF = () => {
   };
 
   // submit (add or update)
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
     fieldConfig.forEach((f) => {
@@ -298,20 +292,29 @@ const handleExportPDF = () => {
       return;
     }
 
-    if (editIndex !== null) {
-      if (!window.confirm("Are you sure you want to update this employee?")) {
-        return;
-      }
-      const updated = [...employees];
-      updated[editIndex] = { ...employee };
-      setEmployees(updated);
-      setEditIndex(null);
-      showSnackbar("Employee updated successfully", "success");
+    try {
+      if (editIndex !== null) {
+        if (!window.confirm("Are you sure you want to update this employee?")) return;
+        const emp = employees[editIndex];
+        const docRef = doc(db, "employees", emp.id);
+        await updateDoc(docRef, employee);
+
+        const updated = [...employees];
+        updated[editIndex] = { ...emp, ...employee };
+        setEmployees(updated);
+        setEditIndex(null);
+        showSnackbar("Employee updated successfully", "success");
     } else {
-      setEmployees((prev) => [...prev, { ...employee, idNo: generateIdNo() }]);
-      showSnackbar("Employee added successfully", "success");
+        const newEmployee = { ...employee, idNo: generateIdNo() };
+        const docRef = await addDoc(collection(db, "employees"), newEmployee);
+        setEmployees((prev) => [...prev, { ...newEmployee, id: docRef.id }]);
+        showSnackbar("Employee added successfully", "success");
     }
     setEmployee(initialEmployee);
+  } catch (error) {
+      console.error(error);
+      showSnackbar("Error saving employee", "error");
+    }
   };
 
   // reset form
@@ -328,18 +331,24 @@ const handleExportPDF = () => {
   };
 
   // delete
-  const handleDelete = (globalIndex) => {
-    if (window.confirm("Delete this employee?")) {
+  const handleDelete = async (globalIndex) => {
+    if (!window.confirm("Delete this employee?")) return;
+    try {
+      const emp = employees[globalIndex];
+      await deleteDoc(doc(db, "employees", emp.id));
       setEmployees((prev) => prev.filter((_, idx) => idx !== globalIndex));
       if (editIndex === globalIndex) {
         setEmployee(initialEmployee);
         setEditIndex(null);
       }
       showSnackbar("Employee deleted successfully", "success");
+    } catch (err) {
+      console.error(err);
+      showSnackbar("Error deleting employee", "error");
     }
   };
 
-  // sorting
+  // ---------- Sorting / Filtering ----------
   const requestSort = (key) => {
     let dir = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") dir = "desc";
@@ -398,38 +407,43 @@ const handleExportPDF = () => {
 
   // excel import (simple)
   const handleImportExcel = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = new Uint8Array(evt.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-        if (json.length > 0) {
-          // map rows to our schema: try to match keys (case-insensitive)
-          const mapped = json.map((row) => {
-            const newRow = { ...initialEmployee };
-            Object.keys(row).forEach((col) => {
-              // find matching key in initialEmployee by normalized name
-              const normalizedCol = String(col).replace(/\s+/g, "").toLowerCase();
-              const matchKey = Object.keys(initialEmployee).find((k) => k.toLowerCase() === normalizedCol || k.toLowerCase() === normalizedCol.replace(/[^a-z]/g, ""));
-              if (matchKey) newRow[matchKey] = row[col];
-            });
-            newRow.idNo = newRow.idNo || generateIdNo();
-            return newRow;
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (evt) => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+      if (json.length > 0) {
+        for (const row of json) {
+          const newRow = { ...initialEmployee };
+          Object.keys(row).forEach((col) => {
+            const normalizedCol = String(col).replace(/\s+/g, "").toLowerCase();
+            const matchKey = Object.keys(initialEmployee).find(
+              (k) =>
+                k.toLowerCase() === normalizedCol ||
+                k.toLowerCase() === normalizedCol.replace(/[^a-z]/g, "")
+            );
+            if (matchKey) newRow[matchKey] = row[col];
           });
-          setEmployees((prev) => [...prev, ...mapped]);
+          newRow.idNo = newRow.idNo || generateIdNo();
+
+          const docRef = await addDoc(collection(db, "employees"), newRow);
+          setEmployees((prev) => [...prev, { ...newRow, id: docRef.id }]);
         }
-      } catch (err) {
-        console.error(err);
-        alert("Error importing Excel file");
+        showSnackbar("Excel data imported to Firestore", "success");
       }
-    };
-    reader.readAsArrayBuffer(file);
-    e.target.value = null;
+    } catch (err) {
+      console.error(err);
+      showSnackbar("Error importing Excel file", "error");
+    }
   };
+  reader.readAsArrayBuffer(file);
+  e.target.value = null;
+};
 
   // JSON backup
   const handleBackupJSON = () => {
@@ -445,30 +459,21 @@ const handleRestoreJSON = (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (evt) => {
+  reader.onload = async (evt) => {
     try {
       const json = JSON.parse(evt.target.result);
-
-      // auto-detect: array vs object.employees
       const data = Array.isArray(json) ? json : json.employees;
+      if (!Array.isArray(data)) throw new Error("Invalid JSON structure");
 
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid JSON structure: must be an array or { employees: [...] }");
+      for (const row of data) {
+        const newRow = { ...initialEmployee, ...row };
+        newRow.idNo = newRow.idNo || generateIdNo();
+
+        const docRef = await addDoc(collection(db, "employees"), newRow);
+        setEmployees((prev) => [...prev, { ...newRow, id: docRef.id }]);
       }
 
-      setEmployees(data);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
-
-      // optional: update LAST_ID_KEY to avoid id collisions
-      const maxId = data
-        .map((r) => {
-          const m = String(r.idNo || "").match(/EMP-(\d+)/);
-          return m ? parseInt(m[1], 10) : 0;
-        })
-        .reduce((a, b) => Math.max(a, b), 0);
-      if (maxId > 0) localStorage.setItem(LAST_ID_KEY, String(maxId));
-
-      showSnackbar("Database restored successfully", "success");
+      showSnackbar("JSON restored to Firestore", "success");
     } catch (err) {
       console.error(err);
       showSnackbar("Invalid JSON file!", "error");
@@ -555,9 +560,6 @@ const handleRestoreJSON = (e) => {
             </Button>
           </Box>
         </form>
-        {/* Import/Export/Backup Buttons (unchanged) */}
-        <Box mt={2} display="flex" flexDirection="column" gap={1}>
-        </Box>
       </Box>
       {/* Right: Table panel */}
       <Box flex={1} p={3} sx={{ overflowX: "auto" }}>
@@ -717,7 +719,7 @@ const handleRestoreJSON = (e) => {
                   const globalIndex = startGlobalIndex + idx;
                   const isEditing = editIndex === globalIndex;
                   return (
-                    <TableRow key={emp.idNo || `${globalIndex}`} sx={isEditing ? { background: "#f0f8ff" } : {}}>
+                    <TableRow key={emp.id || emp.idNo || globalIndex} sx={isEditing ? { background: "#f0f8ff" } : {}}>
                       {/* idNo sticky left */}
                       <TableCell
                         sx={{
@@ -790,10 +792,7 @@ const handleRestoreJSON = (e) => {
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          sx={{ width: "100%" }}
-        >
+          onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: "100%" }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

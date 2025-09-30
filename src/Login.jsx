@@ -1,72 +1,59 @@
-import { useState } from "react";
-import {
-  Container,
-  TextField,
-  Button,
-  Typography,
-  Paper,
-  Box,
-} from "@mui/material";
+import React, { useState } from "react";
+import { TextField, Button, Box, Typography, Paper } from "@mui/material";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "./firebase";
 
-function Login({ onLogin }) {
-  const [username, setUsername] = useState("");
+const Login = ({ onLogin }) => {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    // Dummy credentials (pwede mong palitan later)
-    if (username === "amilen" && password === "@milen123") {
-      onLogin(username);
-    } else {
-      setError("Invalid username or password");
+  const handleLogin = async () => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      onLogin(user.email); // pass email to App.jsx
+    } catch (err) {
+      setError("Invalid email or password");
     }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Paper elevation={3} sx={{ mt: 12, p: 4 }}>
-        <Typography variant="h4" align="center" gutterBottom>
-          AMILEN HRM OPC
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <Paper elevation={3} sx={{ p: 4, width: 350, textAlign: "center" }}>
+        <Typography variant="h5" gutterBottom>
+          Employee Management Login
         </Typography>
-        <Typography variant="h6" align="center" gutterBottom>
-          Employee Management System Login
-        </Typography>
-
-        <Box
-          component="form"
-          onSubmit={handleSubmit}
-          sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+        <TextField
+          label="Email"
+          variant="outlined"
+          fullWidth
+          margin="normal"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <TextField
+          label="Password"
+          type="password"
+          variant="outlined"
+          fullWidth
+          margin="normal"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        {error && <Typography color="error">{error}</Typography>}
+        <Button
+          variant="contained"
+          color="primary"
+          fullWidth
+          sx={{ mt: 2 }}
+          onClick={handleLogin}
         >
-          <TextField
-            label="Username"
-            variant="outlined"
-            fullWidth
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <TextField
-            label="Password"
-            type="password"
-            variant="outlined"
-            fullWidth
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <Button type="submit" variant="contained" color="primary" fullWidth>
-            Login
-          </Button>
-        </Box>
-
-        {error && (
-          <Typography color="error" align="center" sx={{ mt: 2 }}>
-            {error}
-          </Typography>
-        )}
+          Login
+        </Button>
       </Paper>
-    </Container>
+    </Box>
   );
-}
+};
 
 export default Login;
