@@ -1,5 +1,5 @@
 // EmployeeForm.jsx
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
@@ -10,6 +10,8 @@ import PrintIcon from "@mui/icons-material/Print";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import RestoreIcon from "@mui/icons-material/Restore";
 import BackupIcon from "@mui/icons-material/Backup";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import {
   TextField,
   Select,
@@ -30,6 +32,7 @@ import {
   Snackbar,
   Alert,
   Menu,
+  IconButton,
 } from "@mui/material";
 
 // 🔹 Firebase imports
@@ -94,8 +97,6 @@ const fieldConfig = [
   { name: "presentAddress", label: "Present Address" },
 ];
 
-const companyList = ["AHRM", "3JPMC", "UFPC", "PFGI", "AMC", "SLVMC", "YE", "TANGC"];
-
 // Helper to generate Employee IDs
 let empCounter = 0;
 const generateIdNo = () => {
@@ -105,12 +106,15 @@ const generateIdNo = () => {
 // ---------- Component ----------
 const EmployeeForm = () => {
   // state
+  const [filterCompany, setFilterCompany] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [companyList, setCompanyList] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [employee, setEmployee] = useState(initialEmployee);
   const [errors, setErrors] = useState({});
   const [editIndex, setEditIndex] = useState(null);
   const [search, setSearch] = useState("");
-  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedCompany] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const tableRef = useRef();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -118,6 +122,13 @@ const EmployeeForm = () => {
   const handleMenuClick = (event) => setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
 // ---------- Load from Firestore ----------
+  useEffect(() => {
+  const unsub = onSnapshot(collection(db, "companies"), (snapshot) => {
+    const list = snapshot.docs.map((d) => d.data().name);
+    setCompanyList(list);
+  });
+  return () => unsub();
+}, []);
   useEffect(() => {
   const unsub = onSnapshot(collection(db, "employees"), (snapshot) => {
     const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -377,20 +388,27 @@ const handleExportPDF = () => {
   }, [employees, sortConfig]);
 
   const filteredEmployees = sortedEmployees
-    .filter((emp) => {
-      const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
-      return (
-        fullName.includes(search.toLowerCase()) ||
-        emp.company.toLowerCase().includes(search.toLowerCase())
-      );
-    })
-    .filter((emp) => (selectedCompany ? emp.company === selectedCompany : true));
-
-  const paginatedEmployees = useMemo(() => {
-    const start = page * rowsPerPage;
-    return filteredEmployees.slice(start, start + rowsPerPage);
-  }, [filteredEmployees, page, rowsPerPage]);
-
+  .filter((emp) => {
+    const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+    return (
+      fullName.includes(search.toLowerCase()) ||
+      emp.company.toLowerCase().includes(search.toLowerCase())
+    );
+  })
+  .filter((emp) =>
+    filterCompany && filterCompany !== "ALL EMPLOYEES"
+      ? emp.company === filterCompany
+      : true
+  )
+  .filter((emp) =>
+    filterStatus && filterStatus !== "ALL STATUS"
+      ? emp.status === filterStatus
+      : true
+  );
+    const paginatedEmployees = useMemo(() => {
+  const start = page * rowsPerPage;
+  return filteredEmployees.slice(start, start + rowsPerPage);
+}, [filteredEmployees, page, rowsPerPage]);
   // excel export
   const handleExportExcel = () => {
     const wsData = employees.map((emp) =>
@@ -513,6 +531,7 @@ const handleRestoreJSON = (e) => {
                   <>
                     <InputLabel shrink>{f.label}</InputLabel>
                     <Select
+                      id={f.name}
                       name={f.name}
                       value={employee[f.name] || ""}
                       onChange={handleChange}
@@ -534,6 +553,7 @@ const handleRestoreJSON = (e) => {
                   </>
                 ) : (
                   <TextField
+                    id={f.name}
                     label={f.label}
                     type={f.type || "text"}
                     name={f.name}
@@ -564,32 +584,65 @@ const handleRestoreJSON = (e) => {
       {/* Right: Table panel */}
       <Box flex={1} p={3} sx={{ overflowX: "auto" }}>
         <Typography variant="h5" gutterBottom>
-          {selectedCompany ? `${selectedCompany} Employees` : "All Employees"}
+          {selectedCompany ? `${selectedCompany} Employees` : ""}
         </Typography>
         {/* company filters */}
-        <Box display="flex" gap={1} mb={2} flexWrap="wrap">
-          <Button variant={selectedCompany === null ? "contained" : "outlined"} onClick={() => setSelectedCompany(null)}>
-            All Employees
-          </Button>
+        <Box display="flex" gap={2} mb={2} flexWrap="wrap">
+        <TextField
+          select
+          label="Filter by Company"
+          value={filterCompany}
+          onChange={(e) => setFilterCompany(e.target.value)}
+          size="small"
+          sx={{ minWidth: 200 }}
+        >
+          <MenuItem value="ALL EMPLOYEES">ALL EMPLOYEES</MenuItem>
           {companyList.map((c) => (
-            <Button key={c} variant={selectedCompany === c ? "contained" : "outlined"} onClick={() => setSelectedCompany(c)}>
-              {c}
-            </Button>
+            <MenuItem key={c} value={c}>{c}</MenuItem>
           ))}
-        </Box>
+        </TextField>
+
+        <TextField
+          select
+          label="Filter by Status"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          size="small"
+          sx={{ minWidth: 200 }}
+        >
+          <MenuItem value="ALL STATUS">ALL STATUS</MenuItem>
+          <MenuItem value="Active">Active</MenuItem>
+          <MenuItem value="Inactive">Inactive</MenuItem>
+        </TextField>
+      </Box>
 
         {/* Search + Export */}
-      <Box display="flex" alignItems="center" mb={2} gap={2} flexWrap="wrap">
-        <TextField
-          placeholder="Search by Name or Company"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 320 }}
-        />
-        {/* Dropdown Menu for Export/Import/Backup */}
-        <Button variant="outlined" onClick={handleMenuClick}>
-          Export / Import
-        </Button>
+      <Box
+  sx={{
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+    background: "#fff",
+    p: 1,
+    borderBottom: "1px solid #ddd",
+  }}
+  display="flex"
+  alignItems="center"
+  gap={2}
+>
+  <TextField
+    placeholder="Search by Name or Company"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    size="small"
+    sx={{ width: 250 }}
+  />
+
+  <Button variant="outlined" onClick={handleMenuClick}>
+    Export / Import
+  </Button>
+  {/* Dropdown Menu (Export/Import/Backup) same as before */}
+
         <Menu anchorEl={anchorEl} open={open} onClose={handleMenuClose}>
         {/* EXPORTS */}
         <MenuItem
@@ -624,34 +677,27 @@ const handleRestoreJSON = (e) => {
         <Box sx={{ borderTop: "1px solid #ddd", my: 1 }} />
 
         {/* IMPORT from Excel */}
-        <label htmlFor="import-excel" style={{ width: "100%" }}>
+        <MenuItem component="label">
+          <UploadFileIcon fontSize="small" style={{ marginRight: 8 }} />
+          Import from Excel
           <input
             type="file"
-            id="import-excel"
+            hidden
             accept=".xlsx, .xls"
-            style={{ display: "none" }}
             onChange={handleImportExcel}
           />
-          <MenuItem component="span">
-            <UploadFileIcon fontSize="small" style={{ marginRight: 8 }} />
-            Import from Excel
-          </MenuItem>
-        </label>
+        </MenuItem>
 
-        {/* RESTORE from JSON */}
-        <label htmlFor="restore-json" style={{ width: "100%" }}>
+        <MenuItem component="label">
+          <RestoreIcon fontSize="small" style={{ marginRight: 8 }} />
+          Restore JSON Database
           <input
             type="file"
-            id="restore-json"
+            hidden
             accept=".json"
-            style={{ display: "none" }}
             onChange={handleRestoreJSON}
           />
-          <MenuItem component="span">
-            <RestoreIcon fontSize="small" style={{ marginRight: 8 }} />
-            Restore JSON Database
-          </MenuItem>
-        </label>
+        </MenuItem>
 
         {/* BACKUP JSON */}
         <MenuItem
@@ -717,9 +763,14 @@ const handleRestoreJSON = (e) => {
               {paginatedEmployees.length > 0 ? (
                 paginatedEmployees.map((emp, idx) => {
                   const globalIndex = startGlobalIndex + idx;
-                  const isEditing = editIndex === globalIndex;
                   return (
-                    <TableRow key={emp.id || emp.idNo || globalIndex} sx={isEditing ? { background: "#f0f8ff" } : {}}>
+                    <TableRow
+                    key={emp.id || emp.idNo || globalIndex}
+                    sx={{
+                      background:
+                        emp.status === "Active" ? "#e8f5e9" : emp.status === "Inactive" ? "#f5f5f5" : "inherit",
+                    }}
+                  >
                       {/* idNo sticky left */}
                       <TableCell
                         sx={{
@@ -752,12 +803,13 @@ const handleRestoreJSON = (e) => {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        <Button size="small" onClick={() => handleEdit(globalIndex)}>
-                          Edit
-                        </Button>
-                        <Button size="small" color="error" onClick={() => handleDelete(globalIndex)}>
-                          Delete
-                        </Button>
+                        <IconButton color="primary" size="small" onClick={() => handleEdit(globalIndex)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton color="error" size="small" onClick={() => handleDelete(globalIndex)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+
                       </TableCell>
                     </TableRow>
                   );
