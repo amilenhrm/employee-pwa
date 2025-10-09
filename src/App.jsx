@@ -18,7 +18,8 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleIcon from "@mui/icons-material/People";
 import BusinessIcon from "@mui/icons-material/Business";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline"; // 🔹 logo placeholder
-
+import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
+import PayrollManager from "./PayrollManager";
 import Dashboard from "./Dashboard";
 import EmployeeForm from "./EmployeeForm";
 import CompanyManager from "./CompanyManager";
@@ -76,7 +77,7 @@ function Login() {
             required
             fullWidth
           />
-
+        
           {error && (
             <Typography variant="body2" color="error" align="center">
               {error}
@@ -95,6 +96,14 @@ function Login() {
 function App() {
   const [tab, setTab] = useState(0);
   const [user, setUser] = useState(null);
+  useEffect(() => {
+  const savedMainTab = localStorage.getItem("lastMainTab");
+  if (savedMainTab) setTab(parseInt(savedMainTab));
+}, []);
+
+useEffect(() => {
+  localStorage.setItem("lastMainTab", tab);
+}, [tab]);
 
   // 🔹 Monitor Firebase auth state
   useEffect(() => {
@@ -115,7 +124,7 @@ function App() {
       console.error(err);
     }
   };
-
+  
   return (
     <>
       <CssBaseline />
@@ -144,7 +153,8 @@ function App() {
                 >
                   <Tab icon={<DashboardIcon />} iconPosition="start" label="Dashboard" />
                   <Tab icon={<PeopleIcon />} iconPosition="start" label="Employees" />
-                  <Tab icon={<BusinessIcon />} iconPosition="start" label="Companies" />
+                  <Tab icon={<BusinessIcon />} iconPosition="start" label="Companies" /> 
+                  <Tab icon={<MonetizationOnIcon />} iconPosition="start" label="Payroll" />
                 </Tabs>
               </Box>
 
@@ -165,6 +175,10 @@ function App() {
             {tab === 0 && <Dashboard />}
             {tab === 1 && <EmployeeForm />}
             {tab === 2 && <CompanyManager />}
+            <div style={{ display: tab === 3 ? "block" : "none" }}>
+  <PayrollManager />
+</div>
+
           </Box>
         </Box>
       )}
