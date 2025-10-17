@@ -75,9 +75,9 @@ export const computeTotals = (empId, payrollData, companyRates) => {
   const hdmfCal = d.hdmfCal ?? 0;
 
   // Mandatory Contributions
-  const sss = (companyRates?.sssRate ? rate * (companyRates.sssRate / 100) : 0) + (d.sss ?? 0);
-  const hdmf = (companyRates?.hdmfRate ? rate * (companyRates.hdmfRate / 100) : 0) + (d.hdmf ?? 0);
-  const phic = (companyRates?.phicRate ? rate * (companyRates.phicRate / 100) : 0) + (d.phic ?? 0);
+  const sss = (companyRates?.sssRate ? grossPay * (companyRates.sssRate / 100) : 0);
+  const hdmf = (companyRates?.hdmfRate ? 10000/4 * (companyRates.hdmfRate / 100) : 0);
+  const phic = (companyRates?.phicRate ? grossPay * (companyRates.phicRate / 100) : 0);
 
   const totalDeductions =coLoan + cA + sss + hdmf + phic + sssLoan + sssCal + hdmfLoan + hdmfCal;
   const netPay = grossPay - totalDeductions;

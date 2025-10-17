@@ -23,6 +23,10 @@ import PayrollManager from "./PayrollManager";
 import Dashboard from "./Dashboard";
 import EmployeeForm from "./EmployeeForm";
 import CompanyManager from "./CompanyManager";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import BillingStatement from "./BillingStatement";
+import PayslipTabWrapper from "./PayslipTabWrapper";
+
 
 // 🔹 Login Form with Firebase
 function Login() {
@@ -155,6 +159,8 @@ useEffect(() => {
                   <Tab icon={<PeopleIcon />} iconPosition="start" label="Employees" />
                   <Tab icon={<BusinessIcon />} iconPosition="start" label="Companies" /> 
                   <Tab icon={<MonetizationOnIcon />} iconPosition="start" label="Payroll" />
+                  <Tab icon={<ReceiptLongIcon />} iconPosition="start" label="Payslip" />
+                  <Tab icon={<ReceiptLongIcon />} iconPosition="start" label="Billing" />
                 </Tabs>
               </Box>
 
@@ -175,7 +181,10 @@ useEffect(() => {
             {tab === 0 && <Dashboard />}
             {tab === 1 && <EmployeeForm />}
             {tab === 2 && <CompanyManager />}
+            {tab === 5 && <BillingStatement />}
+            {tab === 4 && <PayslipTabWrapper />}
             <div style={{ display: tab === 3 ? "block" : "none" }}>
+            
   <PayrollManager />
 </div>
 

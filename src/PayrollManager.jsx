@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Button, Snackbar, Alert, Tabs, Tab } from "@mui/material";
 import { db } from "./firebase";
-import { doc, getDoc, setDoc, collection, onSnapshot, serverTimestamp } from "firebase/firestore";
+import {doc, getDoc, setDoc, collection, onSnapshot, updateDoc, deleteField,} from "firebase/firestore";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import PayrollControls from "./PayrollControls";
@@ -19,6 +19,7 @@ const PayrollManager = () => {
   const [period, setPeriod] = useState({ start: "", end: "" });
   const [activeTab, setActiveTab] = useState(0);
   const [loadingPayroll, setLoadingPayroll] = useState(false);
+  const [sortedEmployeeOrder, setSortedEmployeeOrder] = useState([]);
 
 
   // 🔹 Load employees
@@ -57,48 +58,42 @@ const PayrollManager = () => {
     }));
   };
 
- // 🔹 Load payroll from Firestore or localStorage when company/period changes
-useEffect(() => {
-  if (!company || !period.start || !period.end) return;
-  if (employees.length === 0) return;
+  // 🔹 Load payroll from Firestore or localStorage
+  useEffect(() => {
+    if (!company || !period.start || !period.end) return;
+    if (employees.length === 0) return;
 
-  const key = `payroll_${company}_${period.start}_${period.end}`;
-  const docRef = doc(db, "payrolls", `${company}_${period.start}_${period.end}`);
+    const key = `payroll_${company}_${period.start}_${period.end}`;
+    const docRef = doc(db, "payrolls", `${company}_${period.start}_${period.end}`);
 
-  const loadData = async () => {
-    setLoadingPayroll(true); // 🟢 start loading
-    try {
-      console.log("🔎 Checking Firestore for existing payroll:", key);
-      const snap = await getDoc(docRef);
+    const loadData = async () => {
+      setLoadingPayroll(true);
+      try {
+        const snap = await getDoc(docRef);
 
-      if (snap.exists()) {
-        console.log("✅ Loaded payroll from Firestore for:", key);
-        const dbData = snap.data()?.data || {};
-        setPayrollData(dbData);
-      } else {
-        console.log("⚠️ No Firestore data found, checking localStorage...");
-        const saved = localStorage.getItem(key);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          setPayrollData(parsed);
-          console.log("📦 Loaded payroll from localStorage for:", key);
+        if (snap.exists()) {
+          const dbData = snap.data()?.data || {};
+          setPayrollData(dbData);
         } else {
-          console.log("🆕 No saved payroll found, starting fresh.");
-          setPayrollData({});
+          const saved = localStorage.getItem(key);
+          if (saved) {
+            setPayrollData(JSON.parse(saved));
+          } else {
+            setPayrollData({});
+          }
         }
+      } catch (err) {
+        console.error("❌ Failed to load payroll data:", err);
+        setPayrollData({});
+      } finally {
+        setLoadingPayroll(false);
       }
-    } catch (err) {
-      console.error("❌ Failed to load payroll data:", err);
-      setPayrollData({});
-    } finally {
-      setLoadingPayroll(false); // 🟢 stop loading
-    }
-  };
+    };
 
-  loadData();
-}, [company, period.start, period.end, employees]);
+    loadData();
+  }, [company, period.start, period.end, employees]);
 
-  // 🔹 Restore company & period on reload
+  // 🔹 Restore company & period
   useEffect(() => {
     const savedCompany = localStorage.getItem("lastCompany");
     const savedPeriod = localStorage.getItem("lastPeriod");
@@ -123,30 +118,97 @@ useEffect(() => {
     if (savedTab) setActiveTab(parseInt(savedTab));
   }, []);
 
-  // ✅ Save payroll to Firestore (per company-period)
+  // ✅ SAVE PAYROLL TO FIRESTORE
   const savePayrollToDatabase = async () => {
     if (!company || !period.start || !period.end) {
       alert("⚠️ Please select company and period first.");
       return;
     }
+
+    const payrollDocRef = doc(db, "payrolls", `${company}_${period.start}_${period.end}`);
+
     try {
-      const payrollDocRef = doc(db, "payrolls", `${company}_${period.start}_${period.end}`);
-      await setDoc(payrollDocRef, {
+      const fullData = {};
+      // 🔹 Match Payroll Table sorting (by lastName, firstName)
+const sortedActive = [...activeEmployees].sort((a, b) => {
+  const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
+  const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
+  return nameA.localeCompare(nameB);
+});
+
+// 🔹 Then loop sorted list to preserve correct numbering
+sortedActive.forEach((emp, idx) => {
+  const d = payrollData[emp.id] || {};
+  const totals = computeTotals(emp.id, payrollData, companyRates);
+  const merged = { no: idx + 1, ...d, ...totals };
+
+  const filtered = Object.fromEntries(
+    Object.entries(merged).filter(
+      ([key, val]) =>
+        key === "no" || (val !== 0 && val !== "" && val !== null && val !== undefined)
+    )
+  );
+
+  fullData[emp.id] = filtered;
+});
+
+      // 1️⃣ Build fullData with computed totals + remove 0 fields
+        activeEmployees.forEach((emp, idx) => {
+    const d = payrollData[emp.id] || {};
+    const totals = computeTotals(emp.id, payrollData, companyRates);
+
+    // Include `no` to preserve order
+    const merged = { no: emp.no || idx + 1, ...d, ...totals };
+
+    // Exclude zeros and empty values, but KEEP `no`
+    const filtered = Object.fromEntries(
+      Object.entries(merged).filter(
+        ([key, val]) =>
+          key === "no" || (val !== 0 && val !== "" && val !== null && val !== undefined)
+      )
+    );
+
+    fullData[emp.id] = filtered;
+  });
+
+      // 2️⃣ Save cleaned data first
+      await setDoc(
+      payrollDocRef,
+      {
         company,
         period,
-        data: payrollData,
+        data: fullData,
+        order: sortedActive.map((e) => e.id), // 🆕 save employee id order
         updatedAt: new Date().toISOString(),
-      });
-      alert("✅ Payroll successfully saved to database!");
+      },
+      { merge: false }
+    );
+
+      // 3️⃣ Delete fields that became zero
+      const snap = await getDoc(payrollDocRef);
+      if (snap.exists()) {
+        const existing = snap.data()?.data || {};
+
+        for (const emp of activeEmployees) {
+          const empData = payrollData[emp.id] || {};
+          const combined = { ...empData, ...computeTotals(emp.id, payrollData, companyRates) };
+        for (const [field, val] of Object.entries(combined)) {
+          if (val === 0 || val === "" || val === null || val === undefined) {
+            await updateDoc(payrollDocRef, { [`data.${emp.id}.${field}`]: deleteField() });
+            }
+          }
+        }
+      }
+
+      alert("✅ Payroll saved from Database");
       localStorage.removeItem(`payroll_${company}_${period.start}_${period.end}`);
     } catch (error) {
-      console.error("Error saving payroll:", error);
+      console.error("❌ Error saving payroll:", error);
       alert("❌ Failed to save payroll. Check console for details.");
     }
   };
-  
 
-  // ✅ Export to Excel (clean headers)
+  // ✅ Export to Excel
   const handleExportExcel = () => {
     const rows = activeEmployees.map((emp) => {
       const d = payrollData[emp.id] || {};
@@ -228,7 +290,6 @@ useEffect(() => {
         <Tab label="Create" />
       </Tabs>
 
-      {/* --- Menu Tab --- */}
       {activeTab === 0 && (
         <Box textAlign="center">
           <Button
@@ -243,48 +304,48 @@ useEffect(() => {
         </Box>
       )}
 
-      {/* --- Create Tab --- */}
       {activeTab === 1 && (
-  <Box>
-    <PayrollControls
-      employees={employees}
-      company={company}
-      setCompany={setCompany}
-      period={period}
-      setPeriod={setPeriod}
-      handleExportExcel={handleExportExcel}
-    />
-
-    {/* 🔹 Auto-show PayrollTable when company & period are selected */}
-    {company && period.start && period.end && (
-      loadingPayroll ? (
-        <Typography align="center" sx={{ mt: 3 }}>
-          ⏳ Loading Payroll Data...
-        </Typography>
-      ) : (
         <Box>
-          <PayrollTable
-            key={`${company}_${period.start}_${period.end}`}
-            activeEmployees={activeEmployees}
-            payrollData={payrollData}
-            handleChange={handleChange}
-            companyRates={companyRates}
+          <PayrollControls
+            employees={employees}
+            company={company}
+            setCompany={setCompany}
+            period={period}
+            setPeriod={setPeriod}
+            handleExportExcel={handleExportExcel}
           />
 
-          <Box sx={{ mt: 2, textAlign: "center" }}>
-            <Button
-              variant="contained"
-              color="success"
-              onClick={savePayrollToDatabase}
-            >
-              💾 Save Payroll to Database
-            </Button>
-          </Box>
+          {company && period.start && period.end && (
+            loadingPayroll ? (
+              <Typography align="center" sx={{ mt: 3 }}>
+                ⏳ Loading Payroll Data...
+              </Typography>
+            ) : (
+              <Box>
+                <PayrollTable
+                  key={`${company}_${period.start}_${period.end}`}
+                  activeEmployees={activeEmployees}
+                  payrollData={payrollData}
+                  handleChange={handleChange}
+                  companyRates={companyRates}
+                  setSortedEmployeeOrder={setSortedEmployeeOrder}
+                />
+
+                <Box sx={{ mt: 2, textAlign: "center" }}>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    onClick={savePayrollToDatabase}
+                  >
+                    💾 Save Payroll to Database
+                  </Button>
+                </Box>
+              </Box>
+            )
+          )}
         </Box>
-      )
-    )}
-  </Box>
-)}
+      )}
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}

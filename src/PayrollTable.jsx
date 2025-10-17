@@ -1,11 +1,11 @@
 // PayrollTable.jsx
-import React, { memo, useMemo, useState } from "react";
+import React, { memo, useMemo, useState, useEffect } from "react";
 import { Paper, TextField, Box, Button } from "@mui/material";
 import { formatCurrency, computeTotals } from "./utils/payrollUtils";
 
-const PayrollTable = ({ activeEmployees, payrollData, handleChange, companyRates }) => {
-  const [orderBy, setOrderBy] = useState("no");
-  const [order, setOrder] = useState("asc");
+const PayrollTable = ({ activeEmployees, payrollData, handleChange, companyRates, setSortedEmployeeOrder }) => {
+  const [sortBy, setSortBy] = useState("name");
+  const [sortOrder, setSortOrder] = useState("asc");
   const [visibleColumns, setVisibleColumns] = useState({
     specialHoliday: true,
     regularHoliday: true,
@@ -17,6 +17,7 @@ const PayrollTable = ({ activeEmployees, payrollData, handleChange, companyRates
   const toggleColumn = (key) => {
     setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+  
 
   // 🔹 Compute total summary
   const totalSummary = useMemo(() => {
@@ -130,8 +131,8 @@ const totalColSpanBeforeGross = fixedColsBeforeGross;
           <tr style={{ background: "#c6e2faff" }}>
           
             <th style={{ width: 25, border: "1px solid #ffffff" }}>#</th>
-            <th style={{ width: 45, border: "1px solid #ffffff" }}>EMP ID</th>
-            <th style={{ width: 200, border: "1px solid #ffffff" }}>Employee Name</th>
+            <th style={{ width: 45, border: "1px solid #ffffff", cursor: "pointer", userSelect: "none", }} onClick={() => { if (sortBy === "empNo") { setSortOrder(sortOrder === "asc" ? "desc" : "asc"); } else { setSortBy("empNo"); setSortOrder("asc"); }}}> EMP ID {sortBy === "empNo" ? (sortOrder === "asc" ? "▲" : "▼") : ""}</th>
+            <th style={{ width: 200,border: "1px solid #ffffff", cursor: "pointer", userSelect: "none", }} onClick={() => { if (sortBy === "name") { setSortOrder(sortOrder === "asc" ? "desc" : "asc"); } else { setSortBy("name"); setSortOrder("asc"); }}}>Employee Name {sortBy === "name" ? (sortOrder === "asc" ? "▲" : "▼") : ""}</th>
 
             {/* Regular Pay */}
             <th style={{ width: 40, border: "1px solid #ffffff" }}>Days</th>
@@ -218,9 +219,54 @@ const totalColSpanBeforeGross = fixedColsBeforeGross;
         </thead>
 
         <tbody>
-          {activeEmployees.map((emp, idx) => {
+          {[...activeEmployees]
+          .sort((a, b) => {
+            if (sortBy === "name") {
+              const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
+              const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
+              return sortOrder === "asc"
+                ? nameA.localeCompare(nameB)
+                : nameB.localeCompare(nameA);
+            }
+            if (sortBy === "empNo") {
+              const idA = (a.idNo || "").toString().toLowerCase();
+              const idB = (b.idNo || "").toString().toLowerCase();
+              return sortOrder === "asc"
+                ? idA.localeCompare(idB)
+                : idB.localeCompare(idA);
+            }
+            return 0;
+          })
+          
+          .map((emp, idx) => {
+
             const d = payrollData[emp.id] || {};
             const t = computeTotals(emp.id, payrollData, companyRates);
+          // 🔹 Save current employee order to localStorage
+useEffect(() => {
+  if (!activeEmployees || activeEmployees.length === 0) return;
+
+  // Sort exactly the same way as visible in the table
+  const sortedIds = [...activeEmployees]
+    .sort((a, b) => {
+      if (sortBy === "name") {
+        const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
+        const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
+        return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      }
+      if (sortBy === "empNo") {
+        const idA = (a.idNo || "").toString().toLowerCase();
+        const idB = (b.idNo || "").toString().toLowerCase();
+        return sortOrder === "asc" ? idA.localeCompare(idB) : idB.localeCompare(idA);
+      }
+      return 0;
+    })
+    .map((e) => e.id);
+
+  // Save to localStorage
+  localStorage.setItem("lastSortedEmployeeOrder", JSON.stringify(sortedIds));
+  console.log("💾 Saved employee order to localStorage:", sortedIds.length, "employees");
+}, [activeEmployees, sortBy, sortOrder]);
 
             return (
               <tr key={emp.id} style={{ background: idx % 2 ? "#f9f9f9" : "white" }}>
