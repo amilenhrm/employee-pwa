@@ -104,62 +104,91 @@ console.log("✅ Payslip order applied:", ordered.map((e) => e.id));
 
   /// 🔹 Print all payslips (one per 3x5 page)
 const handlePrintAll = () => {
-  const payslipsContainer = document.querySelector(".payslip-wrapper");
-  if (!payslipsContainer) {
+  const allPayslips = document.querySelector("#all-payslips");
+  if (!allPayslips) {
     alert("No payslips to print.");
     return;
   }
 
   const printWindow = window.open("", "_blank");
+
+  const styles = Array.from(document.styleSheets)
+    .map(sheet => {
+      try {
+        return Array.from(sheet.cssRules).map(r => r.cssText).join("");
+      } catch {
+        return "";
+      }
+    })
+    .join("\n");
+
   printWindow.document.write(`
     <html>
       <head>
         <title>Payslips</title>
-        <style>
-          @page {
-            size: 3in 5in;
-            margin: 0;
-          }
-          html, body {
-            width: 3in;
-            height: 5in;
-            margin: 0;
-            padding: 0;
-            background: white;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-          }
-          .payslip {
-            width: 3in;
-            height: 5in;
-            margin: 0 auto;
-            padding: 12px;
-            box-sizing: border-box;
-            page-break-after: always;
-            overflow: hidden;
-          }
-          .MuiDivider-root {
-            border-top: 1px solid #000 !important;
-            margin: 2px 0 !important;
-            width: 50%;
-          }
-          @media print {
-            * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
+        <style>${styles}</style>
+          <style>
+            @page {
+              size: 3in 5in;
+              margin: 0;
             }
-            html, body, .payslip {
-              width: 3in !important;
-              height: 5in !important;
+
+             html, body {
+              margin: 0;
+              padding: 0;
+              background: white;
+              font-size: 9.25px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              width: 3in;
+              height: 5in;
+              overflow: hidden;
             }
+            .print-wrapper {
+              width: 3in;
+              height: 5in;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: flex-start;
+              transform-origin: center center;
+            }
+
             .payslip {
-              box-shadow: none !important;
-              page-break-after: always !important;
+              width: 3in ;
+              height: 5in;
+              box-sizing: border-box;
+              padding: 0px;
+              margin: 0 auto;
+              overflow: hidden;
+              page-break-after: always;
+              zoom: 1 !important;
+              transform: none !important;
+              white-space: nowrap;
             }
-          }
-        </style>
+
+            .payslip * {
+              font-family: 'Arial', sans-serif !important;
+              white-space: nowrap !important;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+
+            @media print {
+            html, body {
+              width: 3in;
+              height: 5in;
+              overflow: visible !important;
+              }
+              .payslip {
+              width: 3in;
+              height: 5in;
+              page-break-after: always !important;
+              }
+            }
+          </style>
       </head>
-      <body>${payslipsContainer.innerHTML}</body>
+      <body>${allPayslips.innerHTML}</body>
     </html>
   `);
 
@@ -168,8 +197,9 @@ const handlePrintAll = () => {
     printWindow.focus();
     printWindow.print();
     printWindow.close();
-  }, 800);
+  }, 1200);
 };
+
 
 
   return (
@@ -258,7 +288,21 @@ const handlePrintAll = () => {
           index={currentPage}
           total={employees.length}
         />
-    </Box>
+      </Box>
+  {/* Hidden container for all payslips */}
+  <div id="all-payslips" style={{ display: "none" }}>
+    {employees.map((emp, i) => (
+      <div key={emp.id || emp} className="payslip">
+        <Payslip
+          company={company}
+          period={period}
+          empId={emp.id || emp}
+          index={i}
+          total={employees.length}
+        />
+      </div>
+    ))}
+  </div>
 
     {/* Pagination controls */}
 <Box mt={2} display="flex" justifyContent="center" alignItems="center" gap={2} className="no-print">
@@ -389,7 +433,7 @@ useLayoutEffect(() => {
 
   const observer = new ResizeObserver(() => adjustFont());
   observer.observe(el);
-  setTimeout(adjustFont, 300);
+  setTimeout(adjustFont, 100);
   return () => observer.disconnect();
 }, [empData]);
 
@@ -415,15 +459,15 @@ useLayoutEffect(() => {
         className="payslip"
         sx={{ 
           p: 1.5, 
-          mt: 2, 
+          mt: 0, 
           mx: "auto", 
           width: "3in", 
           minHeight: "5in", 
           overflow: "hidden", 
-          fontSize: `${.75 * fontScale}rem`, 
-          boxShadow: 2, 
+          fontSize: `${.95 * fontScale}rem`, 
+          boxShadow: 20, 
           "@media print": { 
-            margin: 1, 
+            margin: 0, 
             boxShadow: "none", 
             pageBreakAfter: "always",  
           }, 
@@ -571,7 +615,7 @@ useLayoutEffect(() => {
           justifyContent: "space-between",
           textAlign: "center",
           mt: 1,
-          fontSize: `${0.65 * fontScale}rem`, 
+          fontSize: `${0.95 * fontScale}rem`, 
         }} 
       > 
       <Box sx={{ width: "32%" }}> 
