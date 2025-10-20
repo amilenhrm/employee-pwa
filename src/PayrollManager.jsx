@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import PayrollControls from "./PayrollControls";
 import PayrollTable from "./PayrollTable";
+import ContributionManager from "./ContributionManager";
 import { formatCurrency, computeTotals } from "./utils/payrollUtils";
 
 const PayrollManager = () => {
@@ -288,7 +289,10 @@ sortedActive.forEach((emp, idx) => {
       <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ mb: 2 }}>
         <Tab label="Menu" />
         <Tab label="Create" />
+        <Tab label="Contributions" />
+
       </Tabs>
+      {activeTab === 2 && <ContributionManager />}
 
       {activeTab === 0 && (
         <Box textAlign="center">
@@ -305,6 +309,7 @@ sortedActive.forEach((emp, idx) => {
       )}
 
       {activeTab === 1 && (
+        
         <Box>
           <PayrollControls
             employees={employees}
@@ -314,6 +319,8 @@ sortedActive.forEach((emp, idx) => {
             setPeriod={setPeriod}
             handleExportExcel={handleExportExcel}
           />
+          
+
 
           {company && period.start && period.end && (
             loadingPayroll ? (

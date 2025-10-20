@@ -75,9 +75,20 @@ export const computeTotals = (empId, payrollData, companyRates) => {
   const hdmfCal = d.hdmfCal ?? 0;
 
   // Mandatory Contributions
-  const sss = (companyRates?.sssRate ? grossPay * (companyRates.sssRate / 100) : 0);
-  const hdmf = (companyRates?.hdmfRate ? 10000/4 * (companyRates.hdmfRate / 100) : 0);
-  const phic = (companyRates?.phicRate ? grossPay * (companyRates.phicRate / 100) : 0);
+  // Mandatory Contributions
+// 🧾 SSS (employee share only)
+const sss = companyRates?.sssRate ? grossPay * (companyRates.sssRate / 100) : 0;
+
+// 🏠 Pag-IBIG (EE 2%, ER 2%, max ₱10,000 base)
+const hdmfBase = Math.min(regAmt, 10000);
+const hdmf = hdmfBase * 0.02; // Employee share
+const hdmfER = hdmfBase * 0.02; // Employer share (for reference only)
+
+// 🩺 PhilHealth (2024–2025: 5% split 50/50, base ₱10k–₱100k)
+const phicBase = Math.min(Math.max(regAmt), 100000);
+const totalPhic = phicBase * 0.05;
+const phic = totalPhic / 2;     // Employee Share (EE)
+const phicER = totalPhic / 2;   // Employer Share (ER)
 
   const totalDeductions =coLoan + cA + sss + hdmf + phic + sssLoan + sssCal + hdmfLoan + hdmfCal;
   const netPay = grossPay - totalDeductions;

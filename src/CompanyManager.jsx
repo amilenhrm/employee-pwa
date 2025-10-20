@@ -1,4 +1,4 @@
-// CompanyManager.jsx
+// src/CompanyManager.jsx
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -13,7 +13,13 @@ import {
   TableBody,
   Snackbar,
   Alert,
-  IconButton
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  MenuItem,
 } from "@mui/material";
 import { Delete, Edit } from "@mui/icons-material";
 import { db } from "./firebase";
@@ -30,10 +36,16 @@ import {
 const CompanyManager = () => {
   const [companies, setCompanies] = useState([]);
   const [newCompany, setNewCompany] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editingName, setEditingName] = useState("");
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
+  const [editingCompany, setEditingCompany] = useState(null);
+  const [editRates, setEditRates] = useState({});
+
+  // 🔹 Load realtime companies
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "companies"), (snap) => {
       setCompanies(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -41,12 +53,12 @@ const CompanyManager = () => {
     return () => unsub();
   }, []);
 
-  // ➕ Add
+  // ➕ Add company
   const handleAddCompany = async () => {
-    if (!newCompany) return;
+    if (!newCompany.trim()) return;
     try {
       await addDoc(collection(db, "companies"), {
-        name: newCompany,
+        name: newCompany.trim(),
         regotRate: 125,
         regndRate: 130,
         spclholsunRate: 200,
@@ -64,27 +76,19 @@ const CompanyManager = () => {
         sssRate: 4.5,
         hdmfRate: 2,
         phicRate: 3,
+        serviceFeeType: "percentage", // NEW
+        serviceFeeValue: 10,          // NEW
         createdAt: serverTimestamp(),
       });
       setSnackbar({ open: true, message: "Company added", severity: "success" });
       setNewCompany("");
     } catch (err) {
       console.error(err);
-      setSnackbar({ open: true, message: "Error adding company", severity: "error" });
-    }
-  };
-
-  // ✏️ Edit Name
-  const handleEditName = async (id) => {
-    if (!editingName) return;
-    try {
-      await updateDoc(doc(db, "companies", id), { name: editingName });
-      setSnackbar({ open: true, message: "Company updated", severity: "success" });
-      setEditingId(null);
-      setEditingName("");
-    } catch (err) {
-      console.error(err);
-      setSnackbar({ open: true, message: "Error updating company", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Error adding company",
+        severity: "error",
+      });
     }
   };
 
@@ -95,26 +99,53 @@ const CompanyManager = () => {
       setSnackbar({ open: true, message: "Company deleted", severity: "success" });
     } catch (err) {
       console.error(err);
-      setSnackbar({ open: true, message: "Error deleting company", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Error deleting company",
+        severity: "error",
+      });
     }
   };
 
-  // 🔄 Update Rates
-  const handleRateChange = async (id, field, value) => {
+  // ✏️ Open Edit Dialog
+  const handleOpenEdit = (company) => {
+    setEditingCompany(company);
+    setEditRates({ ...company });
+  };
+
+  // ❌ Close Dialog
+  const handleCloseDialog = () => {
+    setEditingCompany(null);
+    setEditRates({});
+  };
+
+  // 💾 Save All Rates
+  const handleSaveRates = async () => {
+    if (!editingCompany) return;
     try {
-      await updateDoc(doc(db, "companies", id), {
-        [field]: parseFloat(value) || 0,
-      });
+      const ref = doc(db, "companies", editingCompany.id);
+      const fieldsToUpdate = { ...editRates };
+      delete fieldsToUpdate.id;
+      delete fieldsToUpdate.createdAt;
+
+      await updateDoc(ref, fieldsToUpdate);
       setSnackbar({ open: true, message: "Rates updated", severity: "success" });
+      handleCloseDialog();
     } catch (err) {
       console.error(err);
-      setSnackbar({ open: true, message: "Error updating rates", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Error saving rates",
+        severity: "error",
+      });
     }
   };
 
   return (
     <Box sx={{ mt: 4 }}>
-      <Typography variant="h6" align="center">Company Manager</Typography>
+      <Typography variant="h6" align="center">
+        Company Manager
+      </Typography>
 
       {/* Add New Company */}
       <Box display="flex" gap={2} mt={2} mb={2}>
@@ -128,73 +159,33 @@ const CompanyManager = () => {
         </Button>
       </Box>
 
-      {/* Company List with Rates */}
+      {/* Company Table */}
       <Paper sx={{ overflowX: "auto" }}>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>Name</TableCell>
-              <TableCell>Regular OT %</TableCell>
-              <TableCell>Regular ND %</TableCell>
-              <TableCell>Special Hol/Sun %</TableCell>
-              <TableCell>Special Hol/Sun OT %</TableCell>
-              <TableCell>Special Hol/Sun ND %</TableCell>
-              <TableCell>Regular Hol %</TableCell>
-              <TableCell>Regular Hol OT %</TableCell>
-              <TableCell>Regular Hol ND %</TableCell>
-              <TableCell>Sun + Special Holiday %</TableCell>
-              <TableCell>Sun + Special Holiday OT %</TableCell>
-              <TableCell>Sun + Special Holiday ND %</TableCell>
-              <TableCell>Sun + Regular Holiday %</TableCell>
-              <TableCell>Sun + Regular Holiday OT %</TableCell>
-              <TableCell>Sun + Regular Holiday ND %</TableCell>
-              <TableCell>SSS %</TableCell>
-              <TableCell>HDMF %</TableCell>
-              <TableCell>PHIC %</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell align="center">Service Fee</TableCell>
+              <TableCell align="center">SSS %</TableCell>
+              <TableCell align="center">HDMF %</TableCell>
+              <TableCell align="center">PHIC %</TableCell>
+              <TableCell align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {companies.map((c) => (
               <TableRow key={c.id}>
-                {/* Company Name (editable) */}
-                <TableCell>
-                  {editingId === c.id ? (
-                    <Box display="flex" gap={1}>
-                      <TextField
-                        size="small"
-                        value={editingName}
-                        onChange={(e) => setEditingName(e.target.value)}
-                      />
-                      <Button size="small" onClick={() => handleEditName(c.id)}>Save</Button>
-                    </Box>
-                  ) : (
-                    c.name
-                  )}
+                <TableCell>{c.name}</TableCell>
+                <TableCell align="center">
+                  {c.serviceFeeType === "percentage"
+                    ? `${c.serviceFeeValue ?? 0}%`
+                    : `₱${c.serviceFeeValue ?? 0}`}
                 </TableCell>
-
-                {/* Rates */}
-                <TableCell><TextField size="small" type="number" value={c.regotRate ?? ""} onChange={(e) => handleRateChange(c.id, "regotRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.regndRate ?? ""} onChange={(e) => handleRateChange(c.id, "regndRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.spclholsunRate ?? ""} onChange={(e) => handleRateChange(c.id, "spclholsunRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.spclholsunotRate ?? ""} onChange={(e) => handleRateChange(c.id, "spclholsunotRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.spclholsunndRate ?? ""} onChange={(e) => handleRateChange(c.id, "spclholsunndRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.regholRate ?? ""} onChange={(e) => handleRateChange(c.id, "regholRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.regholotRate ?? ""} onChange={(e) => handleRateChange(c.id, "regholotRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.regholndRate ?? ""} onChange={(e) => handleRateChange(c.id, "regholndRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.sunaddspclholRate ?? ""} onChange={(e) => handleRateChange(c.id, "sunaddspclholRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.sunaddspclholotRate ?? ""} onChange={(e) => handleRateChange(c.id, "sunaddspclholotRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.sunaddspclholndRate ?? ""} onChange={(e) => handleRateChange(c.id, "sunaddspclholndRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.sunaddregholRate ?? ""} onChange={(e) => handleRateChange(c.id, "sunaddregholRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.sunaddregholotRate ?? ""} onChange={(e) => handleRateChange(c.id, "sunaddregholotRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.sunaddregholndRate ?? ""} onChange={(e) => handleRateChange(c.id, "sunaddregholndRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.sssRate ?? ""} onChange={(e) => handleRateChange(c.id, "sssRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.hdmfRate ?? ""} onChange={(e) => handleRateChange(c.id, "hdmfRate", e.target.value)} /></TableCell>
-                <TableCell><TextField size="small" type="number" value={c.phicRate ?? ""} onChange={(e) => handleRateChange(c.id, "phicRate", e.target.value)} /></TableCell>
-
-                {/* Actions */}
-                <TableCell>
-                  <IconButton onClick={() => { setEditingId(c.id); setEditingName(c.name); }}>
+                <TableCell align="center">{c.sssRate ?? "-"}</TableCell>
+                <TableCell align="center">{c.hdmfRate ?? "-"}</TableCell>
+                <TableCell align="center">{c.phicRate ?? "-"}</TableCell>
+                <TableCell align="center">
+                  <IconButton color="primary" onClick={() => handleOpenEdit(c)}>
                     <Edit fontSize="small" />
                   </IconButton>
                   <IconButton color="error" onClick={() => handleDelete(c.id)}>
@@ -207,6 +198,90 @@ const CompanyManager = () => {
         </Table>
       </Paper>
 
+      {/* ✏️ Edit Dialog */}
+      <Dialog open={!!editingCompany} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Rates – {editingCompany?.name}</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2}>
+            {/* NEW: Service Fee Section */}
+            <Grid item xs={6}>
+              <TextField
+                select
+                fullWidth
+                label="Service Fee Type"
+                value={editRates.serviceFeeType || "percentage"}
+                onChange={(e) =>
+                  setEditRates((prev) => ({
+                    ...prev,
+                    serviceFeeType: e.target.value,
+                  }))
+                }
+              >
+                <MenuItem value="percentage">Percentage (%)</MenuItem>
+                <MenuItem value="fixed">Fixed Amount (₱)</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Service Fee Value"
+                value={editRates.serviceFeeValue ?? ""}
+                onChange={(e) =>
+                  setEditRates((prev) => ({
+                    ...prev,
+                    serviceFeeValue: parseFloat(e.target.value) || 0,
+                  }))
+                }
+              />
+            </Grid>
+
+            {/* Existing Rate Fields */}
+            {[
+              "regotRate",
+              "regndRate",
+              "spclholsunRate",
+              "spclholsunotRate",
+              "spclholsunndRate",
+              "regholRate",
+              "regholotRate",
+              "regholndRate",
+              "sunaddspclholRate",
+              "sunaddspclholotRate",
+              "sunaddspclholndRate",
+              "sunaddregholRate",
+              "sunaddregholotRate",
+              "sunaddregholndRate",
+              "sssRate",
+              "hdmfRate",
+              "phicRate",
+            ].map((field) => (
+              <Grid item xs={6} sm={4} key={field}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label={field.replace(/([A-Z])/g, " $1")}
+                  value={editRates[field] ?? ""}
+                  onChange={(e) =>
+                    setEditRates((prev) => ({
+                      ...prev,
+                      [field]: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button variant="contained" onClick={handleSaveRates}>
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
