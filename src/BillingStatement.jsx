@@ -125,7 +125,6 @@ let formatted = Object.entries(data).map(([id, emp]) => {
     rate: emp.rate ?? 0,
     regAmt: emp.regAmt ?? 0,
     regotAmt: emp.regotAmt ?? 0,
-    regholotAmt: emp.regholotAmt ?? 0,
     regndAmt: emp.regndAmt ?? 0,
     spclholsunAmt: emp.spclholsunAmt ?? 0,
     spclholsunotAmt: emp.spclholsunotAmt ?? 0,
