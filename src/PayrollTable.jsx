@@ -3,7 +3,7 @@ import React, { memo, useMemo, useState, useEffect } from "react";
 import { Paper, TextField, Box, Button } from "@mui/material";
 import { formatCurrency, computeTotals } from "./utils/payrollUtils";
 
-const PayrollTable = ({ activeEmployees, payrollData, handleChange, companyRates, setSortedEmployeeOrder }) => {
+const PayrollTable = ({ activeEmployees, payrollData, handleChange, companyRates, }) => {
   const [sortBy, setSortBy] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
   const [visibleColumns, setVisibleColumns] = useState({
@@ -30,6 +30,32 @@ const PayrollTable = ({ activeEmployees, payrollData, handleChange, companyRates
     });
     return { gross, net };
   }, [activeEmployees, payrollData, companyRates]);
+
+  useEffect(() => {
+  if (!activeEmployees || activeEmployees.length === 0) return;
+
+  // Sort exactly the same way as visible in the table
+  const sortedIds = [...activeEmployees]
+    .sort((a, b) => {
+      if (sortBy === "name") {
+        const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
+        const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
+        return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      }
+      if (sortBy === "empNo") {
+        const idA = (a.idNo || "").toString().toLowerCase();
+        const idB = (b.idNo || "").toString().toLowerCase();
+        return sortOrder === "asc" ? idA.localeCompare(idB) : idB.localeCompare(idA);
+      }
+      return 0;
+    })
+    .map((e) => e.id);
+
+  // Save to localStorage
+  localStorage.setItem("lastSortedEmployeeOrder", JSON.stringify(sortedIds));
+  console.log("💾 Saved employee order to localStorage:", sortedIds.length, "employees");
+}, [activeEmployees, sortBy, sortOrder]);
+
   // 🔸 Dynamically count visible columns
 const visibleHolidayCols =
   (visibleColumns.specialHoliday ? 6 : 0) +
@@ -40,9 +66,24 @@ const visibleHolidayCols =
 
 // Regular pay = 7 cols, Deductions group = 9, plus 3 fixed columns (#, ID, Name)
 const fixedColsBeforeGross = 3 + visibleHolidayCols + 9;
-
-// total colSpan before gross pay column
 const totalColSpanBeforeGross = fixedColsBeforeGross;
+
+// 🔹 Sort employees for display
+  const sortedEmployees = useMemo(() => {
+    return [...activeEmployees].sort((a, b) => {
+      if (sortBy === "name") {
+        const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
+        const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
+        return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      }
+      if (sortBy === "empNo") {
+        const idA = (a.idNo || "").toLowerCase();
+        const idB = (b.idNo || "").toLowerCase();
+        return sortOrder === "asc" ? idA.localeCompare(idB) : idB.localeCompare(idA);
+      }
+      return 0;
+    });
+  }, [activeEmployees, sortBy, sortOrder]);
 
   return (
     <Paper sx={{ mt: 2, p: 1, overflowX: "auto" }}>
@@ -219,54 +260,9 @@ const totalColSpanBeforeGross = fixedColsBeforeGross;
         </thead>
 
         <tbody>
-          {[...activeEmployees]
-          .sort((a, b) => {
-            if (sortBy === "name") {
-              const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
-              const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
-              return sortOrder === "asc"
-                ? nameA.localeCompare(nameB)
-                : nameB.localeCompare(nameA);
-            }
-            if (sortBy === "empNo") {
-              const idA = (a.idNo || "").toString().toLowerCase();
-              const idB = (b.idNo || "").toString().toLowerCase();
-              return sortOrder === "asc"
-                ? idA.localeCompare(idB)
-                : idB.localeCompare(idA);
-            }
-            return 0;
-          })
-          
-          .map((emp, idx) => {
-
+          {sortedEmployees.map((emp, idx) => {
             const d = payrollData[emp.id] || {};
             const t = computeTotals(emp.id, payrollData, companyRates);
-          // 🔹 Save current employee order to localStorage
-useEffect(() => {
-  if (!activeEmployees || activeEmployees.length === 0) return;
-
-  // Sort exactly the same way as visible in the table
-  const sortedIds = [...activeEmployees]
-    .sort((a, b) => {
-      if (sortBy === "name") {
-        const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
-        const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
-        return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-      }
-      if (sortBy === "empNo") {
-        const idA = (a.idNo || "").toString().toLowerCase();
-        const idB = (b.idNo || "").toString().toLowerCase();
-        return sortOrder === "asc" ? idA.localeCompare(idB) : idB.localeCompare(idA);
-      }
-      return 0;
-    })
-    .map((e) => e.id);
-
-  // Save to localStorage
-  localStorage.setItem("lastSortedEmployeeOrder", JSON.stringify(sortedIds));
-  console.log("💾 Saved employee order to localStorage:", sortedIds.length, "employees");
-}, [activeEmployees, sortBy, sortOrder]);
 
             return (
               <tr key={emp.id} style={{ background: idx % 2 ? "#f9f9f9" : "white" }}>
@@ -704,4 +700,4 @@ useEffect(() => {
   );
 };
 
-export default PayrollTable;
+export default memo(PayrollTable);

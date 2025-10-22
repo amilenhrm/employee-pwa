@@ -15,6 +15,7 @@ const Login = ({ onLogin }) => {
       const user = userCredential.user;
       onLogin(user.email); // pass email to App.jsx
     } catch (err) {
+      console.error('Login failed:', err.message);
       setError("Invalid email or password");
     }
   };
