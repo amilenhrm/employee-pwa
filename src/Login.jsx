@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { TextField, Button, Box, Typography, Paper } from "@mui/material";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "./firebase";
+import { APP_VERSION, BUILD_DATE } from "./version"; // ✅ Added this line
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState("");
@@ -51,6 +52,30 @@ const Login = ({ onLogin }) => {
         >
           Login
         </Button>
+
+        {/* ✅ Version label */}
+        <Typography
+          variant="caption"
+          sx={{
+            display: "block",
+            mt: 3,
+            color: "text.secondary",
+            opacity: 0.7,
+          }}
+        >
+          @milen HR System v{APP_VERSION} • Built on {BUILD_DATE}
+          {/* ✅ Toast handler */}
+          <Toaster
+            position="bottom-center"
+            toastOptions={{
+              style: {
+                fontSize: '0.9rem',
+                background: '#333',
+                color: '#fff',
+              },
+            }}
+          />
+        </Typography>
       </Paper>
     </Box>
   );

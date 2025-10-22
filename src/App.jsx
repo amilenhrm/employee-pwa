@@ -13,7 +13,6 @@ import {
 } from "@mui/material";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth } from "./firebase";
-
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleIcon from "@mui/icons-material/People";
 import BusinessIcon from "@mui/icons-material/Business";
@@ -26,7 +25,8 @@ import CompanyManager from "./CompanyManager";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import BillingStatement from "./BillingStatement";
 import PayslipTabWrapper from "./PayslipTabWrapper";
-
+import { APP_VERSION, BUILD_DATE } from "./version";
+import { Toaster } from 'react-hot-toast'
 
 // 🔹 Login Form with Firebase
 function Login() {
@@ -191,8 +191,37 @@ useEffect(() => {
           </Box>
         </Box>
       )}
-    </>
+      {/* ✅ Floating version badge */}
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 8,
+          right: 12,
+          backgroundColor: "rgba(0,0,0,0.6)",
+          color: "white",
+          px: 1.5,
+          py: 0.5,
+          borderRadius: 1,
+          fontSize: "0.75rem",
+          zIndex: 2000,
+        }}
+      >
+        @milen HR System v{APP_VERSION} • Built on {BUILD_DATE}
+      </Box>
+    {/* ✅ Toast handler */}
+    <Toaster
+      position="bottom-center"
+      toastOptions={{
+        style: {
+          fontSize: '0.9rem',
+          background: '#333',
+          color: '#fff',
+        },
+      }}
+    />
+  </>
   );
 }
 
 export default App;
+
