@@ -4,13 +4,14 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // ⚙️ Vite configuration
 export default defineConfig({
-  base: "/employee-pwa/",
+  base: '/employee-pwa/',
   plugins: [
     react(),
 
     // 🔋 Progressive Web App configuration
     VitePWA({
       registerType: 'autoUpdate', // auto-refresh kapag may bagong build
+      filename: 'sw.js',
       includeAssets: [
         'favicon.svg',
         'robots.txt',
@@ -27,8 +28,8 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait-primary',
-        start_url: '/',
-        scope: '/',
+        start_url: '/employee-pwa/',
+        scope: '/employee-pwa/',
         icons: [
           {
             src: 'icons/icon-192.png',
