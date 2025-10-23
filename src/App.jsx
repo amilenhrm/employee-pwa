@@ -33,6 +33,7 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -100,14 +101,28 @@ function Login() {
 function App() {
   const [tab, setTab] = useState(0);
   const [user, setUser] = useState(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const updateStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", updateStatus);
+    window.addEventListener("offline", updateStatus);
+    return () => {
+      window.removeEventListener("online", updateStatus);
+      window.removeEventListener("offline", updateStatus);
+    };
+  }, []);
+
   useEffect(() => {
   const savedMainTab = localStorage.getItem("lastMainTab");
   if (savedMainTab) setTab(parseInt(savedMainTab));
 }, []);
 
+
 useEffect(() => {
   localStorage.setItem("lastMainTab", tab);
 }, [tab]);
+
 
   // 🔹 Monitor Firebase auth state
   useEffect(() => {
@@ -129,9 +144,25 @@ useEffect(() => {
     }
   };
   
+  
   return (
     <>
       <CssBaseline />
+      {/* 🔴 Offline banner */}
+  {!isOnline && (
+    <Box
+      sx={{
+        width: "100%",
+        bgcolor: "#ffb3b3",
+        color: "#600",
+        textAlign: "center",
+        py: 0.5,
+        fontSize: "0.85rem",
+      }}
+    >
+      ⚠️ You are offline. Some features may not be available.
+    </Box>
+  )}
 
       {!user ? (
         // 🔹 Show Login Page if not logged in

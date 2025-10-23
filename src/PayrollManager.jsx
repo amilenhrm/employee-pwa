@@ -188,8 +188,6 @@ sortedActive.forEach((emp, idx) => {
       // 3️⃣ Delete fields that became zero
       const snap = await getDoc(payrollDocRef);
       if (snap.exists()) {
-        const existing = snap.data()?.data || {};
-
         for (const emp of activeEmployees) {
           const empData = payrollData[emp.id] || {};
           const combined = { ...empData, ...computeTotals(emp.id, payrollData, companyRates) };
@@ -211,7 +209,12 @@ sortedActive.forEach((emp, idx) => {
 
   // ✅ Export to Excel
   const handleExportExcel = () => {
-    const rows = activeEmployees.map((emp) => {
+    const orderedEmployees = sortedEmployeeOrder.length
+  ? sortedEmployeeOrder.map((id) => activeEmployees.find((emp) => emp.id === id)).filter(Boolean)
+  : activeEmployees;
+
+  const rows = orderedEmployees.map((emp) => {
+
       const d = payrollData[emp.id] || {};
       const totals = computeTotals(emp.id, payrollData, companyRates);
 
@@ -298,12 +301,14 @@ sortedActive.forEach((emp, idx) => {
         <Box textAlign="center">
           <Button
             variant="contained"
+            disabled={isCreating}
             onClick={() => {
               setIsCreating(true);
               setActiveTab(1);
+              setTimeout(() => setIsCreating(false), 1000); // simulate loading
             }}
           >
-            Create Payroll
+            {isCreating ? "Loading..." : "Create Payroll"}
           </Button>
         </Box>
       )}
@@ -337,7 +342,18 @@ sortedActive.forEach((emp, idx) => {
                   companyRates={companyRates}
                   setSortedEmployeeOrder={setSortedEmployeeOrder}
                 />
-
+                <Box sx={{ mt: 3, textAlign: "center" }}>
+                <Typography variant="body1">
+                  Total Net Pay:{" "}
+                  {formatCurrency(
+                    activeEmployees.reduce(
+                      (sum, emp) =>
+                        sum + (computeTotals(emp.id, payrollData, companyRates)?.netPay || 0),
+                      0
+                    )
+                  )}
+                </Typography>
+              </Box>
                 <Box sx={{ mt: 2, textAlign: "center" }}>
                   <Button
                     variant="contained"
