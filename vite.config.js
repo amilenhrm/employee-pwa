@@ -2,22 +2,22 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// ⚙️ Vite configuration
-export default defineConfig({
-  base: '/employee-pwa/',
-  plugins: [
-    react(),
-
-    // 🔋 Progressive Web App configuration
-    VitePWA({
-      registerType: 'autoUpdate', // auto-refresh kapag may bagong build
-      filename: 'sw.js',
-      includeAssets: [
-        'favicon.svg',
-        'robots.txt',
-        'offline.html',
-        'icons/*.png'
-      ],
+      // ⚙️ Vite configuration
+      export default defineConfig({
+        base: '/employee-pwa/',
+        plugins: [
+          react(),
+          VitePWA({
+            registerType: 'autoUpdate',
+            filename: 'sw.js',
+            scope: '/employee-pwa/',   // ✅ added
+            base: '/employee-pwa/',    // ✅ added
+            includeAssets: [
+              'favicon.svg',
+              'robots.txt',
+              'offline.html',
+              'icons/*.png'
+            ],
 
       // 📱 Manifest (metadata para sa installable app)
       manifest: {
@@ -57,7 +57,7 @@ export default defineConfig({
         skipWaiting: true,
 
         // 🔄 Offline fallback page kapag walang internet
-        navigateFallback: '/offline.html',
+        navigateFallback: '/employee-pwa/offline.html',
 
         // 💾 Allow caching for JS files up to 5MB
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
