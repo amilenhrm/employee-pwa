@@ -53,11 +53,12 @@ const PayrollManager = () => {
 
   // 🔹 Handle input changes
   const handleChange = (empId, field, value) => {
-    setPayrollData((prev) => ({
-      ...prev,
-      [empId]: { ...prev[empId], [field]: parseFloat(value) || 0 },
-    }));
-  };
+  // Keep the raw value (string) while typing
+  setPayrollData((prev) => ({
+    ...prev,
+    [empId]: { ...prev[empId], [field]: value },
+  }));
+};
 
   // 🔹 Load payroll from Firestore or localStorage
   useEffect(() => {
@@ -138,11 +139,19 @@ const sortedActive = [...activeEmployees].sort((a, b) => {
 });
 
 // 🔹 Then loop sorted list to preserve correct numbering
-sortedActive.forEach((emp, idx) => {
+  sortedActive.forEach((emp, idx) => {
   const d = payrollData[emp.id] || {};
-  const totals = computeTotals(emp.id, payrollData, companyRates);
-  const merged = { no: idx + 1, ...d, ...totals };
 
+  // 🔹 Convert all fields from string to number
+  const cleanedData = {};
+  for (const [field, val] of Object.entries(d)) {
+    cleanedData[field] = parseFloat(val) || 0; // <-- here
+  }
+
+  const totals = computeTotals(emp.id, payrollData, companyRates);
+  const merged = { no: idx + 1, ...cleanedData, ...totals };
+
+  // Remove empty or zero fields except `no`
   const filtered = Object.fromEntries(
     Object.entries(merged).filter(
       ([key, val]) =>
@@ -152,6 +161,7 @@ sortedActive.forEach((emp, idx) => {
 
   fullData[emp.id] = filtered;
 });
+
 
       // 1️⃣ Build fullData with computed totals + remove 0 fields
         activeEmployees.forEach((emp, idx) => {
