@@ -21,8 +21,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
       // 📱 Manifest (metadata para sa installable app)
       manifest: {
-        name: 'Employee PWA System',
-        short_name: 'EmployeePWA',
+        name: 'Amilen_HRM',
+        short_name: 'Amilen HRM Manager',
         description: 'Employee & Payroll Management App',
         theme_color: '#2563eb',
         background_color: '#ffffff',

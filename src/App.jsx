@@ -27,6 +27,8 @@ import BillingStatement from "./BillingStatement";
 import PayslipTabWrapper from "./PayslipTabWrapper";
 import { APP_VERSION, BUILD_DATE } from "./version";
 import { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
+
 
 // 🔹 Login Form with Firebase
 function Login() {
@@ -143,7 +145,42 @@ useEffect(() => {
       console.error(err);
     }
   };
-  
+  // existing useEffects mo...
+
+// 🔄 Auto-update detection (PWA)
+useEffect(() => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration().then((registration) => {
+      if (!registration) return;
+
+      registration.onupdatefound = () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.onstatechange = () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              toast((t) => (
+                <span>
+                  🚀 New version available!{" "}
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      window.location.reload();
+                      toast.dismiss(t.id);
+                    }}
+                    style={{ color: '#4caf50', textTransform: 'none' }}
+                  >
+                    Reload now
+                  </Button>
+                </span>
+              ));
+            }
+          };
+        }
+      };
+    });
+  }
+}, []);
+
   
   return (
     <>
