@@ -73,9 +73,9 @@ const CompanyManager = () => {
         sunaddregholRate: 100,
         sunaddregholotRate: 100,
         sunaddregholndRate: 100,
-        sssRate: 4.5,
+        sssRate: 5,
         hdmfRate: 2,
-        phicRate: 3,
+        phicRate: 2.5,
         serviceFeeType: "percentage", // NEW
         serviceFeeValue: 10,          // NEW
         createdAt: serverTimestamp(),

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Button, Snackbar, Alert, Tabs, Tab } from "@mui/material";
 import { db } from "./firebase";
 import {doc, getDoc, setDoc, collection, onSnapshot, updateDoc, deleteField,} from "firebase/firestore";
@@ -52,13 +52,17 @@ const PayrollManager = () => {
   );
 
   // 🔹 Handle input changes
-  const handleChange = (empId, field, value) => {
-  // Keep the raw value (string) while typing
-  setPayrollData((prev) => ({
-    ...prev,
-    [empId]: { ...prev[empId], [field]: value },
-  }));
-};
+  const handleChange = useCallback((empId, field, value) => {
+  setPayrollData((prev) => {
+    const prevRow = prev[empId] || {};
+    // avoid recreating same object if value didn't change
+    if (prevRow[field] === value) return prev;
+    return {
+      ...prev,
+      [empId]: { ...prevRow, [field]: value },
+    };
+  });
+}, []);
 
   // 🔹 Load payroll from Firestore or localStorage
   useEffect(() => {

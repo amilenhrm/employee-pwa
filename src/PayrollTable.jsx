@@ -325,16 +325,16 @@ useEffect(() => {
           <PayrollRow
             key={emp.id}
             emp={emp}
-            index={(page - 1) * rowsPerPage + idx} // correct numbering
+            index={(page - 1) * rowsPerPage + idx}
             data={payrollData[emp.id] || {}}
-            totals={totalsCache[emp.id] || {}}
+            // remove totals prop; let row compute its own totals
             onFieldChange={onFieldChange}
             visibleColumns={visibleColumns}
             useMuiTextField={false}
+            companyRates={companyRates}
           />
         ))}
       </tbody>
-
         <tfoot style={{ position: "sticky", bottom: 0, background: "#80ccf8ff", fontWeight: "bold" }}>
           <tr>
             <td colSpan={totalColSpanBeforeGross} style={{ textAlign: "right", fontWeight: "bold" }}>

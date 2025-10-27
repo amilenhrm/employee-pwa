@@ -75,9 +75,8 @@ export const computeTotals = (empId, payrollData, companyRates) => {
   const hdmfCal = d.hdmfCal ?? 0;
 
   // Mandatory Contributions
-  // Mandatory Contributions
 // 🧾 SSS (employee share only)
-const sss = companyRates?.sssRate ? grossPay * (companyRates.sssRate / 100) : 0;
+  const sss = regAmt * companyRates?.sssRate ?? 0 / 100;
 
 // 🏠 Pag-IBIG (EE 2%, ER 2%, max ₱10,000 base)
 const hdmfBase = Math.min(regAmt, 10000);
