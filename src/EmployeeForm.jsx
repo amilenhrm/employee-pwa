@@ -305,22 +305,20 @@ const handleExportPDF = () => {
 
     try {
       if (editIndex !== null) {
-        if (!window.confirm("Are you sure you want to update this employee?")) return;
-        const emp = employees[editIndex];
-        const docRef = doc(db, "employees", emp.id);
-        await updateDoc(docRef, employee);
+  if (!window.confirm("Are you sure you want to update this employee?")) return;
 
-        const updated = [...employees];
-        updated[editIndex] = { ...emp, ...employee };
-        setEmployees(updated);
-        setEditIndex(null);
-        showSnackbar("Employee updated successfully", "success");
-    } else {
-        const newEmployee = { ...employee, idNo: generateIdNo() };
-        const docRef = await addDoc(collection(db, "employees"), newEmployee);
-        setEmployees((prev) => [...prev, { ...newEmployee, id: docRef.id }]);
-        showSnackbar("Employee added successfully", "success");
-    }
+  const docRef = doc(db, "employees", editIndex);
+  await updateDoc(docRef, employee);
+
+  setEmployees((prev) =>
+    prev.map((e) =>
+      e.id === editIndex ? { ...e, ...employee } : e
+    )
+  );
+
+  setEditIndex(null);
+  showSnackbar("Employee updated successfully", "success");
+}
     setEmployee(initialEmployee);
   } catch (error) {
       console.error(error);
@@ -336,28 +334,31 @@ const handleExportPDF = () => {
   };
 
   // edit
-  const handleEdit = (globalIndex) => {
-    setEmployee(employees[globalIndex]);
-    setEditIndex(globalIndex);
-  };
+  const handleEdit = (emp) => {
+  setEmployee(emp);
+  setEditIndex(emp.id);
+};
 
   // delete
-  const handleDelete = async (globalIndex) => {
-    if (!window.confirm("Delete this employee?")) return;
-    try {
-      const emp = employees[globalIndex];
-      await deleteDoc(doc(db, "employees", emp.id));
-      setEmployees((prev) => prev.filter((_, idx) => idx !== globalIndex));
-      if (editIndex === globalIndex) {
-        setEmployee(initialEmployee);
-        setEditIndex(null);
-      }
-      showSnackbar("Employee deleted successfully", "success");
-    } catch (err) {
-      console.error(err);
-      showSnackbar("Error deleting employee", "error");
+  const handleDelete = async (emp) => {
+  if (!window.confirm("Delete this employee?")) return;
+
+  try {
+    await deleteDoc(doc(db, "employees", emp.id));
+
+    setEmployees((prev) => prev.filter((e) => e.id !== emp.id));
+
+    if (editIndex === emp.id) {
+      setEmployee(initialEmployee);
+      setEditIndex(null);
     }
-  };
+
+    showSnackbar("Employee deleted successfully", "success");
+  } catch (err) {
+    console.error(err);
+    showSnackbar("Error deleting employee", "error");
+  }
+};
 
   // ---------- Sorting / Filtering ----------
   const requestSort = (key) => {
@@ -762,7 +763,6 @@ const handleRestoreJSON = (e) => {
             <TableBody>
               {paginatedEmployees.length > 0 ? (
                 paginatedEmployees.map((emp, idx) => {
-                  const globalIndex = startGlobalIndex + idx;
                   return (
                     <TableRow
                     key={emp.id || emp.idNo || globalIndex}
@@ -803,10 +803,10 @@ const handleRestoreJSON = (e) => {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        <IconButton color="primary" size="small" onClick={() => handleEdit(globalIndex)}>
+                        <IconButton color="primary" size="small" onClick={() => handleEdit(emp)}>
                           <EditIcon fontSize="small" />
                         </IconButton>
-                        <IconButton color="error" size="small" onClick={() => handleDelete(globalIndex)}>
+                        <IconButton color="error" size="small" onClick={() => handleDelete(emp)}>
                           <DeleteIcon fontSize="small" />
                         </IconButton>
 

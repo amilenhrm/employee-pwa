@@ -1,10 +1,17 @@
-// PayrollTable.jsx (updated)
-import React, { memo, useMemo, useState, useEffect, useCallback } from "react";
+// PayrollTable.jsx
+import React, {
+  memo,
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  forwardRef,
+} from "react";
 import { Paper, Box, Button } from "@mui/material";
 import { formatCurrency, computeTotals } from "./utils/payrollUtils";
 import PayrollRow from "./PayrollRow";
 
-const PayrollTable = ({ activeEmployees, payrollData, handleChange, companyRates, }) => {
+const PayrollTable = forwardRef(({ activeEmployees = [], payrollData = {}, handleChange, companyRates = {}, setSortedEmployeeOrder }, ref) => {
   const [sortBy, setSortBy] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
   const [visibleColumns, setVisibleColumns] = useState({
@@ -15,65 +22,30 @@ const PayrollTable = ({ activeEmployees, payrollData, handleChange, companyRates
     premiums: true,
   });
 
-  const toggleColumn = (key) => {
-    setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  const toggleColumn = (key) => setVisibleColumns((p) => ({ ...p, [key]: !p[key] }));
 
-  // Memoize totals for all employees to avoid repeated computeTotals calls during render
+  // Precompute totals for each active employee (memoized)
   const totalsCache = useMemo(() => {
     const cache = {};
-    if (!activeEmployees) return cache;
-    for (const emp of activeEmployees) {
+    for (const emp of activeEmployees || []) {
       cache[emp.id] = computeTotals(emp.id, payrollData, companyRates || {});
     }
     return cache;
   }, [activeEmployees, payrollData, companyRates]);
 
-  // stable onFieldChange: parse value once, then call provided handleChange with number
+  // Stable onFieldChange — PayrollRow will call this onBlur only
   const onFieldChange = useCallback(
-    (empId, field, rawValue) => {
-      // Allow empty or numeric strings; convert to number or 0
-       handleChange(empId, field, rawValue);
+    (empId, field, value) => {
+      // preserve original handleChange signature and behavior
+      if (typeof handleChange === "function") handleChange(empId, field, value);
     },
     [handleChange]
   );
 
-  // compute totals for summary
-  const totalSummary = useMemo(() => {
-    let gross = 0, net = 0;
-    if (!activeEmployees) return { gross, net };
-    activeEmployees.forEach((emp) => {
-      const t = totalsCache[emp.id] || {};
-      gross += t.grossPay || 0;
-      net += t.netPay || 0;
-    });
-    return { gross, net };
-  }, [activeEmployees, totalsCache]);
-
-  useEffect(() => {
-    if (!activeEmployees || activeEmployees.length === 0) return;
-    const sortedIds = [...activeEmployees]
-      .sort((a, b) => {
-        if (sortBy === "name") {
-          const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
-          const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
-          return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-        }
-        if (sortBy === "empNo") {
-          const idA = (a.idNo || "").toString().toLowerCase();
-          const idB = (b.idNo || "").toString().toLowerCase();
-          return sortOrder === "asc" ? idA.localeCompare(idB) : idB.localeCompare(idA);
-        }
-        return 0;
-      })
-      .map((e) => e.id);
-
-    localStorage.setItem("lastSortedEmployeeOrder", JSON.stringify(sortedIds));
-    console.log("💾 Saved employee order to localStorage:", sortedIds.length, "employees");
-  }, [activeEmployees, sortBy, sortOrder]);
-
+  // sort & pagination (kept original behavior)
   const sortedEmployees = useMemo(() => {
-    return [...(activeEmployees || [])].sort((a, b) => {
+    const arr = [...(activeEmployees || [])];
+    arr.sort((a, b) => {
       if (sortBy === "name") {
         const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
         const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
@@ -86,127 +58,78 @@ const PayrollTable = ({ activeEmployees, payrollData, handleChange, companyRates
       }
       return 0;
     });
+    return arr;
   }, [activeEmployees, sortBy, sortOrder]);
 
-  // compute dynamic colspan like before
+  const rowsPerPage = 25;
+  const [page, setPage] = useState(() => {
+    const saved = localStorage.getItem("payrollPage");
+    return saved ? parseInt(saved) : 1;
+  });
+  useEffect(() => localStorage.setItem("payrollPage", page), [page]);
+
+  useEffect(() => setPage(1), [companyRates, sortBy, sortOrder]);
+
+  const paginatedEmployees = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    return sortedEmployees.slice(start, start + rowsPerPage);
+  }, [sortedEmployees, page]);
+
+  // total summary (memoized)
+  const totalSummary = useMemo(() => {
+    let gross = 0, net = 0;
+    for (const emp of activeEmployees || []) {
+      const t = totalsCache[emp.id] || {};
+      gross += t.grossPay || 0;
+      net += t.netPay || 0;
+    }
+    return { gross, net };
+  }, [activeEmployees, totalsCache]);
+
+  // Save sorted order when relevant
+  useEffect(() => {
+    const ids = sortedEmployees.map((e) => e.id);
+    localStorage.setItem("lastSortedEmployeeOrder", JSON.stringify(ids));
+    if (typeof setSortedEmployeeOrder === "function") setSortedEmployeeOrder(ids);
+  }, [sortedEmployees, setSortedEmployeeOrder]);
+
+  // compute colspans dynamically (kept original logic)
   const visibleHolidayCols =
     (visibleColumns.specialHoliday ? 6 : 0) +
     (visibleColumns.regularHoliday ? 6 : 0) +
     (visibleColumns.sunSpecial ? 6 : 0) +
     (visibleColumns.sunRegular ? 6 : 0) +
     (visibleColumns.premiums ? 3 : 0);
-
-  const fixedColsBeforeGross = 3 + visibleHolidayCols + 9;
+  const fixedColsBeforeGross = 3 + visibleHolidayCols + 9; // matches original layout
   const totalColSpanBeforeGross = fixedColsBeforeGross;
-  useEffect(() => {
-  setPage(1);
-}, [companyRates, sortBy, sortOrder]);
-
-  // 🔹 Pagination setup
-const [page, setPage] = useState(() => {
-  const saved = localStorage.getItem("payrollPage");
-  return saved ? parseInt(saved) : 1;
-});
-const rowsPerPage = 25;
-const totalPages = Math.ceil(sortedEmployees.length / rowsPerPage);
-
-const paginatedEmployees = useMemo(() => {
-  const start = (page - 1) * rowsPerPage;
-  return sortedEmployees.slice(start, start + rowsPerPage);
-}, [page, sortedEmployees]);
-
-// save page in localStorage
-useEffect(() => {
-  localStorage.setItem("payrollPage", page);
-}, [page]);
-
-  return (
+ 
+    return (
               <Paper
-                sx={{
-                  mt: 2,
-                  p: 0,
-                  border: "1px solid #ccc",
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                {/* 🔹 Column toggle buttons (sa labas ng scroll area) */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 1,
-                    p: 1,
-                    borderBottom: "1px solid #ddd",
-                    background: "#f9f9f9",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 5,
-                  }}
-                >
-        <Button
-          variant={visibleColumns.specialHoliday ? "contained" : "outlined"}
-          color="primary"
-          size="small"
-          onClick={() => toggleColumn("specialHoliday")}
-        >
-          {visibleColumns.specialHoliday ? "Hide" : "Show"} Special Holiday
+      ref={ref}
+      sx={{ mt: 2, p: 0, border: "1px solid #ccc", position: "relative", overflow: "hidden" }}
+    >
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, p: 1, borderBottom: "1px solid #ddd", background: "#f9f9f9", position: "sticky", top: 0, zIndex: 5 }}>
+        <Button variant={visibleColumns.specialHoliday ? "contained" : "outlined"} size="small" onClick={() => toggleColumn("specialHoliday")}>
+          {visibleColumns.specialHoliday ? "Show" : "Hide"} Special Holiday
         </Button>
-        <Button
-          variant={visibleColumns.regularHoliday ? "contained" : "outlined"}
-          color="primary"
-          size="small"
-          onClick={() => toggleColumn("regularHoliday")}
-        >
-          {visibleColumns.regularHoliday ? "Hide" : "Show"} Regular Holiday
+        <Button variant={visibleColumns.regularHoliday ? "contained" : "outlined"} size="small" onClick={() => toggleColumn("regularHoliday")}>
+          {visibleColumns.regularHoliday ? "Show" : "Hide"} Regular Holiday
         </Button>
-        <Button
-          variant={visibleColumns.sunSpecial ? "contained" : "outlined"}
-          color="primary"
-          size="small"
-          onClick={() => toggleColumn("sunSpecial")}
-        >
-          {visibleColumns.sunSpecial ? "Hide" : "Show"} Sun + Special Holiday
+        <Button variant={visibleColumns.sunSpecial ? "contained" : "outlined"} size="small" onClick={() => toggleColumn("sunSpecial")}>
+          {visibleColumns.sunSpecial ? "Show" : "Hide"} Sun + Special Holiday
         </Button>
-        <Button
-          variant={visibleColumns.sunRegular ? "contained" : "outlined"}
-          color="primary"
-          size="small"
-          onClick={() => toggleColumn("sunRegular")}
-        >
-          {visibleColumns.sunRegular ? "Hide" : "Show"} Sun + Regular Holiday
+        <Button variant={visibleColumns.sunRegular ? "contained" : "outlined"} size="small" onClick={() => toggleColumn("sunRegular")}>
+          {visibleColumns.sunRegular ? "Show" : "Hide"} Sun + Regular Holiday
         </Button>
-        <Button
-          variant={visibleColumns.premiums ? "contained" : "outlined"}
-          color="primary"
-          size="small"
-          onClick={() => toggleColumn("premiums")}
-        >
-          {visibleColumns.premiums ? "Hide" : "Show"} Premiums
+        <Button variant={visibleColumns.premiums ? "contained" : "outlined"} size="small" onClick={() => toggleColumn("premiums")}>
+          {visibleColumns.premiums ? "Show" : "Hide"} Premiums
         </Button>
       </Box>
 
-      {/* ✅ Scrollable area */}
-      <Box
-    sx={{
-      overflowX: "auto",
-      overflowY: "auto",
-      maxHeight: "70vh",
-      position: "relative",
-      scrollbarGutter: "stable both-edges",
-    }}
-    >
       {/* 🔹 Payroll Table */}
-          <table
-            style={{
-              borderCollapse: "collapse",
-              width: "max-content", // important para di ma-cut off ang kanan
-              fontSize: "0.85rem",
-              minWidth: "100%",
-              tableLayout: "fixed",
-            }}
-          >
-        <thead>
+          <Box sx={{ overflowX: "auto", overflowY: "auto", maxHeight: "70vh", position: "relative", scrollbarGutter: "stable both-edges" }}>
+        <table style={{ borderCollapse: "collapse", width: "max-content", fontSize: "0.85rem", minWidth: "100%", tableLayout: "fixed" }}>
+          <thead>
           {/* --- Group header row --- */}
           <tr style={{ background: "#bbdefb", position: "sticky", top: 0, zIndex: 3 }}>
             <th style={{ width: 25 }}></th>
@@ -327,65 +250,35 @@ useEffect(() => {
             emp={emp}
             index={(page - 1) * rowsPerPage + idx}
             data={payrollData[emp.id] || {}}
-            // remove totals prop; let row compute its own totals
+            totals={totalsCache[emp.id] || {}}
             onFieldChange={onFieldChange}
             visibleColumns={visibleColumns}
             useMuiTextField={false}
             companyRates={companyRates}
           />
         ))}
-      </tbody>
+          </tbody>
         <tfoot style={{ position: "sticky", bottom: 0, background: "#80ccf8ff", fontWeight: "bold" }}>
-          <tr>
-            <td colSpan={totalColSpanBeforeGross} style={{ textAlign: "right", fontWeight: "bold" }}>
-              TOTAL GROSS:
-            </td>
-            <td style={{ textAlign: "right", fontWeight: "bold" }}>
-              {formatCurrency(totalSummary.gross)}
-            </td>
-            <td colSpan="9" style={{ textAlign: "right", fontWeight: "bold" }}>
-              TOTAL NET:
-            </td>
-            <td style={{ textAlign: "right", fontWeight: "bold" }}>
-              {formatCurrency(totalSummary.net)}
-            </td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
+            <tr>
+              <td colSpan={totalColSpanBeforeGross} style={{ textAlign: "right", fontWeight: "bold" }}>
+                TOTAL GROSS:
+              </td>
+              <td style={{ textAlign: "right", fontWeight: "bold" }}>{formatCurrency(totalSummary.gross)}</td>
+              <td colSpan="9" style={{ textAlign: "right", fontWeight: "bold" }}>TOTAL NET:</td>
+              <td style={{ textAlign: "right", fontWeight: "bold" }}>{formatCurrency(totalSummary.net)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
       </Box>
       {/* 🔹 Pagination controls */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: 2,
-            mt: 2,
-          }}
-        >
-          <Button
-            variant="outlined"
-            size="small"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            ⬅ Prev
-          </Button>
-          <span>
-            Page {page} of {totalPages || 1}
-          </span>
-          <Button
-            variant="outlined"
-            size="small"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            Next ➡
-          </Button>
-        </Box>
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 2, mt: 2 }}>
+        <Button variant="outlined" size="small" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>⬅ Prev</Button>
+        <span>Page {page} of {Math.max(1, Math.ceil(sortedEmployees.length / rowsPerPage))}</span>
+        <Button variant="outlined" size="small" disabled={page >= Math.ceil(sortedEmployees.length / rowsPerPage)} onClick={() => setPage((p) => Math.min(Math.ceil(sortedEmployees.length / rowsPerPage), p + 1))}>Next ➡</Button>
+      </Box>
     </Paper>
   );
-};
+});
 
 export default memo(PayrollTable);

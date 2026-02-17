@@ -17,3 +17,30 @@
 ::-webkit-scrollbar-track {
   background: #f0f0f0;
 }
+@media print {
+  button, .MuiTabs-root {
+    display: none !important;
+  }
+  body {
+    -webkit-print-color-adjust: exact; /* ✅ para sa Chrome at Safari */
+    print-color-adjust: exact;         /* ✅ para sa Firefox at modern browsers */
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th {
+    background-color: #bbdefb !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+
+

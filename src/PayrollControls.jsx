@@ -2,16 +2,8 @@
 import React from "react";
 import { Box, TextField, MenuItem, Button } from "@mui/material";
 
-const PayrollControls = ({
-  employees,
-  company,
-  setCompany,
-  period,
-  setPeriod,
-  handleExportExcel,
-}) => (
+const PayrollControls = ({ employees = [], company, setCompany, period = {start:"",end:""}, setPeriod, handleExportExcel }) => (
   <Box display="flex" gap={2} flexWrap="wrap" mb={2}>
-    {/* 🔹 Company Selector */}
     <TextField
       select
       label="Select Company"
@@ -20,13 +12,10 @@ const PayrollControls = ({
       sx={{ minWidth: 250 }}
     >
       {[...new Set(employees.map((emp) => emp.company))].map((c) => (
-        <MenuItem key={c} value={c}>
-          {c}
-        </MenuItem>
+        <MenuItem key={c} value={c}>{c}</MenuItem>
       ))}
     </TextField>
 
-    {/* 🔹 Period Start / End */}
     <TextField
       type="date"
       label="Period Start"
@@ -42,14 +31,7 @@ const PayrollControls = ({
       InputLabelProps={{ shrink: true }}
     />
 
-    {/* 🔹 Export button (optional) */}
-    <Button
-      variant="outlined"
-      onClick={handleExportExcel}
-      disabled={!company || !period.start || !period.end}
-    >
-      Export to Excel
-    </Button>
+    <Button variant="outlined" onClick={handleExportExcel} disabled={!company || !period.start || !period.end}>Export to Excel</Button>
   </Box>
 );
 
