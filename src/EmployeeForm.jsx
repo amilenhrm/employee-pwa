@@ -318,7 +318,22 @@ const handleExportPDF = () => {
 
   setEditIndex(null);
   showSnackbar("Employee updated successfully", "success");
-}
+} else {
+      // ✅ ADD NEW EMPLOYEE
+      const newEmployee = {
+        ...employee,
+        idNo: employee.idNo || generateIdNo(),
+      };
+
+      const docRef = await addDoc(collection(db, "employees"), newEmployee);
+
+      setEmployees((prev) => [
+        ...prev,
+        { ...newEmployee, id: docRef.id },
+      ]);
+
+      showSnackbar("Employee added successfully", "success");
+    }
     setEmployee(initialEmployee);
   } catch (error) {
       console.error(error);
