@@ -4,7 +4,7 @@ import { formatCurrency } from "./utils/payrollUtils";
 import { TextField } from "@mui/material";
 import { computeTotals } from "./utils/payrollUtils"; // row-level totals (we'll use this if needed)
 
-const PayrollRow = React.memo(function PayrollRow({
+function PayrollRow({
   emp,
   index,
   data = {},
@@ -15,33 +15,24 @@ const PayrollRow = React.memo(function PayrollRow({
   companyRates = {},
 }) {
     // --- Local state for fast typing: keep strings here ---
-    const [local, setLocal] = useState(() => ({ ...data }));
-    // Sync from parent only when `data` object identity changes (or initial load)
-    useEffect(() => {
-    // Only update local if coming from outside (e.g., after save or load)
-    if (Object.keys(local).length === 0 && Object.keys(data || {}).length > 0) {
-      setLocal(data);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+    //const [local, setLocal] = useState(() => ({ ...data }));
     // Helper: update local state while typing
-    const handleLocalChange = (field, value) => {
-      setLocal((p) => ({ ...p, [field]: value }));
-    };
+    //const handleLocalChange = (field, value) => {
+      //setLocal((p) => ({ ...p, [field]: value }));
+    //};
 
     // On blur -> call parent once with parsed value (preserve original signature)
-    const handleFieldBlur = (field) => {
-      if (!onFieldChange) return;
-      const raw = local[field];
+    //const handleFieldBlur = (field) => {
+      //if (!onFieldChange) return;
+      //const raw = local[field];
       // Try parseFloat, but keep 0 when empty or NaN (this mirrors original cleaning)
-      const parsed = raw === "" ? 0 : parseFloat(String(raw).replace(/,/g, "")) || 0;
-      onFieldChange(emp.id, field, parsed);
-   };
+      //const parsed = raw === "" ? 0 : parseFloat(String(raw).replace(/,/g, "")) || 0;
+      //onFieldChange(emp.id, field, parsed);
+   //};
 
     // Use totalsProp if provided by parent (faster). If not provided,
     // we won't attempt to compute heavy totals here (PayrollTable provides totals).
-    const totals = totalsProp || {};
+    const totals = totalsProp;
     // Memoize formatted display values
     const formatted = useMemo(() => {
       return {
@@ -86,14 +77,46 @@ const PayrollRow = React.memo(function PayrollRow({
       />
     ) : (
       <input
-        type="text"
-        name={field}
-        id={`${emp.id}-${field}`}
-        value={local[field] ?? ""}
-        onChange={(e) => handleLocalChange(field, e.target.value)}
-        onBlur={() => handleFieldBlur(field)}
-        style={{ width: "100%", textAlign: "right", padding: "4px 6px", boxSizing: "border-box", ...style }}
-      />
+  type="text"
+  name={field}
+  id={`${emp.id}-${field}`}
+  defaultValue={data[field] ?? ""}
+  onKeyDown={(e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+
+      const inputs = Array.from(
+        document.querySelectorAll('input[type="text"]')
+      );
+
+      const index = inputs.indexOf(e.target);
+
+      if (index > -1 && index < inputs.length - 1) {
+        // Delay focus so blur finishes first
+        setTimeout(() => {
+          inputs[index + 1].focus();
+        }, 0);
+      }
+    }
+  }}
+onBlur={(e) => {
+    const raw = e.target.value;
+    const parsed =
+      raw === ""
+        ? 0
+        : parseFloat(String(raw).replace(/,/g, "")) || 0;
+
+    if (onFieldChange) {
+      onFieldChange(emp.id, field, parsed);
+    }
+  }}
+  style={{
+    width: "100%",
+    textAlign: "right",
+    padding: "4px 6px",
+    boxSizing: "border-box",
+  }}
+/>
     );
   // Render: kept the original column ordering and visibleColumns checks from original upload.
   // (This markup matches the original layout and Tailwind/MUI usage.)
@@ -104,28 +127,28 @@ const PayrollRow = React.memo(function PayrollRow({
       <td style={{ width: 200 }}>{`${emp.lastName ?? ""}, ${emp.firstName ?? ""}`}</td>
 
       {/* Days */}
-      <td><Field field="days" value={data.days ?? ""} /></td>
+      <td tabIndex={-1}><Field field="days" value={data.days ?? ""} /></td>
       {/* Rate */}
-      <td><Field field="rate" value={data.rate ?? ""} /></td>
+      <td tabIndex={-1}><Field field="rate" value={data.rate ?? ""} /></td>
       {/* Regular Wage Amt (computed) */}
       <td style={{ textAlign: "right" }}>{formatted.regAmt}</td>
       {/* OT Hrs */}
-      <td><Field field="regotHrs" value={data.regotHrs ?? ""} /></td>
+      <td tabIndex={-1}><Field field="regotHrs" value={data.regotHrs ?? ""} /></td>
       {/* OT Amt */}
       <td style={{ textAlign: "right" }}>{formatted.regotAmt}</td>
       {/* ND Hrs */}
-      <td><Field field="regndHrs" value={data.regndHrs ?? ""} /></td>
+      <td tabIndex={-1}><Field field="regndHrs" value={data.regndHrs ?? ""} /></td>
       {/* ND Amt */}
       <td style={{ textAlign: "right" }}>{formatted.regndAmt}</td>
 
       {/* Special Holiday group (conditionally rendered) */}
       {visibleColumns.specialHoliday && (
         <>
-          <td><Field field="days1" value={data.days1 ?? ""} /></td>
+          <td tabIndex={-1}><Field field="days1" value={data.days1 ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.spclholsunAmt}</td>
-          <td><Field field="spclholsunotHrs" value={data.spclholsunotHrs ?? ""} /></td>
+          <td tabIndex={-1}><Field field="spclholsunotHrs" value={data.spclholsunotHrs ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.spclholsunotAmt}</td>
-          <td><Field field="spclholsunndHrs" value={data.spclholsunndHrs ?? ""} /></td>
+          <td tabIndex={-1}><Field field="spclholsunndHrs" value={data.spclholsunndHrs ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.spclholsunndAmt}</td>
         </>
       )}
@@ -133,11 +156,11 @@ const PayrollRow = React.memo(function PayrollRow({
       {/* Regular Holiday */}
       {visibleColumns.regularHoliday && (
         <>
-          <td><Field field="days2" value={data.days2 ?? ""} /></td>
+          <td tabIndex={-1}><Field field="days2" value={data.days2 ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.regholAmt}</td>
-          <td><Field field="regholotHrs" value={data.regholotHrs ?? ""} /></td>
+          <td tabIndex={-1}><Field field="regholotHrs" value={data.regholotHrs ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.regholotAmt}</td>
-          <td><Field field="regholndHrs" value={data.regholndHrs ?? ""} /></td>
+          <td tabIndex={-1}><Field field="regholndHrs" value={data.regholndHrs ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.regholndAmt}</td>
         </>
       )}
@@ -145,11 +168,11 @@ const PayrollRow = React.memo(function PayrollRow({
       {/* Sun + Special */}
       {visibleColumns.sunSpecial && (
         <>
-          <td><Field field="days3" value={data.days3 ?? ""} /></td>
+          <td tabIndex={-1}><Field field="days3" value={data.days3 ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.sunaddspclholAmt}</td>
-          <td><Field field="sunaddspclholotHrs" value={data.sunaddspclholotHrs ?? ""} /></td>
+          <td tabIndex={-1}><Field field="sunaddspclholotHrs" value={data.sunaddspclholotHrs ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.sunaddspclholotAmt}</td>
-          <td><Field field="sunaddspclholndHrs" value={data.sunaddspclholndHrs ?? ""} /></td>
+          <td tabIndex={-1}><Field field="sunaddspclholndHrs" value={data.sunaddspclholndHrs ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.sunaddspclholndAmt}</td>
         </>
       )}
@@ -157,25 +180,25 @@ const PayrollRow = React.memo(function PayrollRow({
       {/* Sun + Regular */}
       {visibleColumns.sunRegular && (
         <>
-          <td><Field field="days4" value={data.days4 ?? ""} /></td>
+          <td tabIndex={-1}><Field field="days4" value={data.days4 ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.sunaddregholAmt}</td>
-          <td><Field field="sunaddregholotHrs" value={data.sunaddregholotHrs ?? ""} /></td>
+          <td tabIndex={-1}><Field field="sunaddregholotHrs" value={data.sunaddregholotHrs ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.sunaddregholotAmt}</td>
-          <td><Field field="sunaddregholndHrs" value={data.sunaddregholndHrs ?? ""} /></td>
+          <td tabIndex={-1}><Field field="sunaddregholndHrs" value={data.sunaddregholndHrs ?? ""} /></td>
           <td style={{ textAlign: "right" }}>{formatted.sunaddregholndAmt}</td>
         </>
       )}
 
       {/* Late Mins */}
-      <td><Field field="lateMins" value={data.lateMins ?? ""} /></td>
+      <td tabIndex={-1}><Field field="lateMins" value={data.lateMins ?? ""} /></td>
       <td style={{ textAlign: "right" }}>{formatted.lateAmt}</td>
 
       {/* Premiums */}
       {visibleColumns.premiums && (
         <>
-          <td><Field field="allowance" value={data.allowance ?? ""} /></td>
-          <td><Field field="incentives" value={data.incentives ?? ""} /></td>
-          <td><Field field="adj" value={data.adj ?? ""} /></td>
+          <td tabIndex={-1}><Field field="allowance" value={data.allowance ?? ""} /></td>
+          <td tabIndex={-1}><Field field="incentives" value={data.incentives ?? ""} /></td>
+          <td tabIndex={-1}><Field field="adj" value={data.adj ?? ""} /></td>
         </>
       )}
 
@@ -183,12 +206,12 @@ const PayrollRow = React.memo(function PayrollRow({
       <td style={{ textAlign: "right" }}>{formatted.grossPay}</td>
 
       {/* Loans / deductions inputs */}
-      <td><Field field="coLoan" value={data.coLoan ?? ""} /></td>
-      <td><Field field="cA" value={data.cA ?? ""} /></td>
-      <td><Field field="sssLoan" value={data.sssLoan ?? ""} /></td>
-      <td><Field field="sssCal" value={data.sssCal ?? ""} /></td>
-      <td><Field field="hdmfLoan" value={data.hdmfLoan ?? ""} /></td>
-      <td><Field field="hdmfCal" value={data.hdmfCal ?? ""} /></td>
+      <td tabIndex={-1}><Field field="coLoan" value={data.coLoan ?? ""} /></td>
+      <td tabIndex={-1}><Field field="cA" value={data.cA ?? ""} /></td>
+      <td tabIndex={-1}><Field field="sssLoan" value={data.sssLoan ?? ""} /></td>
+      <td tabIndex={-1}><Field field="sssCal" value={data.sssCal ?? ""} /></td>
+      <td tabIndex={-1}><Field field="hdmfLoan" value={data.hdmfLoan ?? ""} /></td>
+      <td tabIndex={-1}><Field field="hdmfCal" value={data.hdmfCal ?? ""} /></td>
 
       {/* Deductions display */}
       <td style={{ textAlign: "right" }}>{formatted.sss}</td>
@@ -200,6 +223,5 @@ const PayrollRow = React.memo(function PayrollRow({
       <td></td>
     </tr>
   );
-});
-
-export default PayrollRow;
+}
+export default React.memo(PayrollRow);

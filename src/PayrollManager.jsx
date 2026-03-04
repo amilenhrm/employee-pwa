@@ -59,12 +59,25 @@ const PayrollManager = () => {
   }, []);
 
   useEffect(() => {
-    if (!company) return;
-    const selected = companies.find((c) => c.name === company);
-    if (selected) setCompanyRates(selected || {});
-  }, [company, companies]);
+  if (!company) return;
 
-  const activeEmployees = employees.filter((emp) => emp.company === company && ((emp.status ?? "Active") === "Active"));
+  const selected = companies.find((c) => c.name === company);
+  if (!selected) return;
+
+  setCompanyRates((prev) => {
+    const prevStr = JSON.stringify(prev);
+    const newStr = JSON.stringify(selected);
+    return prevStr === newStr ? prev : selected;
+  });
+}, [company, companies]);
+
+  const activeEmployees = React.useMemo(() => {
+  return employees.filter(
+    (emp) =>
+      emp.company === company &&
+      ((emp.status ?? "Active") === "Active")
+    );
+  }, [employees, company]);
 
   // --- handleChange: called from PayrollRow on blur
   const handleChange = useCallback((empId, field, value) => {
@@ -75,7 +88,7 @@ const PayrollManager = () => {
       const next = { ...prev, [empId]: { ...prevRow, [field]: value } };
       return next;
     });
-    debouncedAutoSave(); // schedule save (debounced)
+   debouncedAutoSave(); // schedule save (debounced)
   }, []);
 
   // --- auto-save (debounced) using original save logic

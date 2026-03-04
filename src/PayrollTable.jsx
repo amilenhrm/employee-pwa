@@ -12,6 +12,7 @@ import { formatCurrency, computeTotals } from "./utils/payrollUtils";
 import PayrollRow from "./PayrollRow";
 
 const PayrollTable = forwardRef(({ activeEmployees = [], payrollData = {}, handleChange, companyRates = {}, setSortedEmployeeOrder }, ref) => {
+  const emptyTotals = useMemo(() => ({}), []);
   const [sortBy, setSortBy] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
   const [visibleColumns, setVisibleColumns] = useState({
@@ -21,17 +22,8 @@ const PayrollTable = forwardRef(({ activeEmployees = [], payrollData = {}, handl
     sunRegular: true,
     premiums: true,
   });
-
+  
   const toggleColumn = (key) => setVisibleColumns((p) => ({ ...p, [key]: !p[key] }));
-
-  // Precompute totals for each active employee (memoized)
-  const totalsCache = useMemo(() => {
-    const cache = {};
-    for (const emp of activeEmployees || []) {
-      cache[emp.id] = computeTotals(emp.id, payrollData, companyRates || {});
-    }
-    return cache;
-  }, [activeEmployees, payrollData, companyRates]);
 
   // Stable onFieldChange — PayrollRow will call this onBlur only
   const onFieldChange = useCallback(
@@ -41,26 +33,44 @@ const PayrollTable = forwardRef(({ activeEmployees = [], payrollData = {}, handl
     },
     [handleChange]
   );
+  
 
   // sort & pagination (kept original behavior)
   const sortedEmployees = useMemo(() => {
-    const arr = [...(activeEmployees || [])];
-    arr.sort((a, b) => {
-      if (sortBy === "name") {
-        const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
-        const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
-        return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-      }
-      if (sortBy === "empNo") {
-        const idA = (a.idNo || "").toLowerCase();
-        const idB = (b.idNo || "").toLowerCase();
-        return sortOrder === "asc" ? idA.localeCompare(idB) : idB.localeCompare(idA);
-      }
-      return 0;
-    });
-    return arr;
-  }, [activeEmployees, sortBy, sortOrder]);
+  const arr = [...(activeEmployees || [])];
+  arr.sort((a, b) => {
+    if (sortBy === "name") {
+      const nameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
+      const nameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
+      return sortOrder === "asc"
+        ? nameA.localeCompare(nameB)
+        : nameB.localeCompare(nameA);
+    }
 
+    if (sortBy === "empNo") {
+      const idA = (a.idNo || "").toLowerCase();
+      const idB = (b.idNo || "").toLowerCase();
+      return sortOrder === "asc"
+        ? idA.localeCompare(idB)
+        : idB.localeCompare(idA);
+    }
+
+    return 0;
+  });
+
+  return arr;
+}, [activeEmployees, sortBy, sortOrder]);
+  useEffect(() => {
+  const ids = sortedEmployees.map((e) => e.id);
+
+  setSortedEmployeeOrder((prev) => {
+    const prevStr = JSON.stringify(prev);
+    const newStr = JSON.stringify(ids);
+    return prevStr === newStr ? prev : ids;
+  });
+
+  localStorage.setItem("lastSortedEmployeeOrder", JSON.stringify(ids));
+}, [sortedEmployees, setSortedEmployeeOrder]);
   const rowsPerPage = 25;
   const [page, setPage] = useState(() => {
     const saved = localStorage.getItem("payrollPage");
@@ -70,29 +80,34 @@ const PayrollTable = forwardRef(({ activeEmployees = [], payrollData = {}, handl
 
   useEffect(() => setPage(1), [companyRates, sortBy, sortOrder]);
 
-  const paginatedEmployees = useMemo(() => {
-    const start = (page - 1) * rowsPerPage;
-    return sortedEmployees.slice(start, start + rowsPerPage);
-  }, [sortedEmployees, page]);
+  const start = (page - 1) * rowsPerPage;
+  const paginatedEmployees = sortedEmployees.slice(start, start + rowsPerPage);
 
   // total summary (memoized)
   const totalSummary = useMemo(() => {
-    let gross = 0, net = 0;
-    for (const emp of activeEmployees || []) {
-      const t = totalsCache[emp.id] || {};
-      gross += t.grossPay || 0;
-      net += t.netPay || 0;
-    }
-    return { gross, net };
-  }, [activeEmployees, totalsCache]);
+  let gross = 0, net = 0;
+
+  for (const emp of activeEmployees || []) {
+    const t = computeTotals(emp.id, payrollData, companyRates);
+    gross += t.grossPay || 0;
+    net += t.netPay || 0;
+  }
+
+  return { gross, net };
+}, [activeEmployees, payrollData, companyRates]);
 
   // Save sorted order when relevant
+  //useEffect(() => {
+    //const ids = sortedEmployees.map((e) => e.id);
+   // localStorage.setItem("lastSortedEmployeeOrder", JSON.stringify(ids));
+    //if (typeof setSortedEmployeeOrder === "function") 
+     // setSortedEmployeeOrder(ids);
+    //}, 
+  //[sortedEmployees, setSortedEmployeeOrder]);
   useEffect(() => {
-    const ids = sortedEmployees.map((e) => e.id);
-    localStorage.setItem("lastSortedEmployeeOrder", JSON.stringify(ids));
-    if (typeof setSortedEmployeeOrder === "function") setSortedEmployeeOrder(ids);
-  }, [sortedEmployees, setSortedEmployeeOrder]);
-
+  if (!setSortedEmployeeOrder) return;
+  setSortedEmployeeOrder(sortedEmployees.map((e) => e.id));
+}, [sortBy, sortOrder]);
   // compute colspans dynamically (kept original logic)
   const visibleHolidayCols =
     (visibleColumns.specialHoliday ? 6 : 0) +
@@ -105,10 +120,11 @@ const PayrollTable = forwardRef(({ activeEmployees = [], payrollData = {}, handl
  
     return (
               <Paper
+              tabIndex={-1}
       ref={ref}
       sx={{ mt: 2, p: 0, border: "1px solid #ccc", position: "relative", overflow: "hidden" }}
     >
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, p: 1, borderBottom: "1px solid #ddd", background: "#f9f9f9", position: "sticky", top: 0, zIndex: 5 }}>
+                <Box tabIndex={-1} sx={{ display: "flex", flexWrap: "wrap", gap: 1, p: 1, borderBottom: "1px solid #ddd", background: "#f9f9f9", position: "sticky", top: 0, zIndex: 5 }}>
         <Button variant={visibleColumns.specialHoliday ? "contained" : "outlined"} size="small" onClick={() => toggleColumn("specialHoliday")}>
           {visibleColumns.specialHoliday ? "Show" : "Hide"} Special Holiday
         </Button>
@@ -127,8 +143,10 @@ const PayrollTable = forwardRef(({ activeEmployees = [], payrollData = {}, handl
       </Box>
 
       {/* 🔹 Payroll Table */}
-          <Box sx={{ overflowX: "auto", overflowY: "auto", maxHeight: "70vh", position: "relative", scrollbarGutter: "stable both-edges" }}>
-        <table style={{ borderCollapse: "collapse", width: "max-content", fontSize: "0.85rem", minWidth: "100%", tableLayout: "fixed" }}>
+          <Box sx={{ overflowX: "auto", //overflowY: "auto", 
+            //maxHeight: "70vh", position: "relative", scrollbarGutter: "stable both-edges" 
+            }}>
+        <table tabIndex={-1} style={{ borderCollapse: "collapse", width: "max-content", fontSize: "0.85rem", minWidth: "100%", tableLayout: "fixed" }}>
           <thead>
           {/* --- Group header row --- */}
           <tr style={{ background: "#bbdefb", position: "sticky", top: 0, zIndex: 3 }}>
@@ -250,7 +268,7 @@ const PayrollTable = forwardRef(({ activeEmployees = [], payrollData = {}, handl
             emp={emp}
             index={(page - 1) * rowsPerPage + idx}
             data={payrollData[emp.id] || {}}
-            totals={totalsCache[emp.id] || {}}
+            totals={computeTotals(emp.id, payrollData, companyRates)}
             onFieldChange={onFieldChange}
             visibleColumns={visibleColumns}
             useMuiTextField={false}
@@ -281,4 +299,4 @@ const PayrollTable = forwardRef(({ activeEmployees = [], payrollData = {}, handl
   );
 });
 
-export default memo(PayrollTable);
+export default PayrollTable;
